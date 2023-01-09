@@ -1,0 +1,25 @@
+<svg width="986" height="979" viewBox="0 0 986 979" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M25 979C11.1929 979 0 967.807 0 954L0 914C0 886.386 22.3858 864 50 864H929C956.614 864 979 886.386 979 914V954C979 967.807 967.807 979 954 979L25 979Z" fill="white"/>
+<rect width="30" height="979" rx="15" fill="white"/>
+<rect x="717" width="30" height="979" rx="15" fill="white"/>
+<rect x="478" width="30" height="979" rx="15" fill="white"/>
+<rect x="956" width="30" height="979" rx="15" fill="white"/>
+<rect x="239" width="30" height="979" rx="15" fill="white"/>
+<path d="M50 115C22.3858 115 0 92.6142 0 65L0 25C0 11.1929 11.1929 0 25 0L954 0C967.807 0 979 11.1929 979 25V65C979 92.6142 956.614 115 929 115L50 115Z" fill="white"/>
+<line x1="16.9098" y1="172.6" x2="255.91" y2="318.6" stroke="white" stroke-width="15"/>
+<line x1="724" y1="574.5" x2="971" y2="574.5" stroke="white" stroke-width="15"/>
+<line x1="487.421" y1="761.06" x2="727.421" y2="576.06" stroke="white" stroke-width="15"/>
+<line x1="253.423" y1="713.636" x2="491.423" y2="759.636" stroke="white" stroke-width="15"/>
+<line x1="13.0941" y1="710.501" x2="252.094" y2="713.501" stroke="white" stroke-width="15"/>
+<line x1="727.579" y1="760.326" x2="967.579" y2="637.326" stroke="white" stroke-width="15"/>
+<line x1="492" y1="759.5" x2="717" y2="759.5" stroke="white" stroke-width="15"/>
+<line x1="251.325" y1="515.718" x2="495.325" y2="761.718" stroke="white" stroke-width="15"/>
+<line x1="16.432" y1="391.331" x2="255.432" y2="514.331" stroke="white" stroke-width="15"/>
+<line x1="731" y1="202.5" x2="971" y2="202.5" stroke="white" stroke-width="15"/>
+<line x1="472.625" y1="465.769" x2="726.625" y2="204.769" stroke="white" stroke-width="15"/>
+<line x1="237.535" y1="513.645" x2="488.535" y2="463.645" stroke="white" stroke-width="15"/>
+<line x1="19.2918" y1="174.918" x2="261.292" y2="547.918" stroke="white" stroke-width="15"/>
+<line x1="732" y1="374.5" x2="971" y2="374.5" stroke="white" stroke-width="15"/>
+<line x1="475.52" y1="463.922" x2="729.52" y2="374.922" stroke="white" stroke-width="15"/>
+<line x1="258.91" y1="318.6" x2="497.91" y2="464.6" stroke="white" stroke-width="15"/>
+</svg>
