@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-main>
-      <Tab></Tab>
+      <Tab class="vh-100 d-flex"></Tab>
     </v-main>
   </v-app>
 </template>

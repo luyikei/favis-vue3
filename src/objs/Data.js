@@ -45,7 +45,11 @@ export class Data {
     this.rawmat = rawmat;
     this.matrix = matrix;
     this.names = names;
-    this.row_names = row_names;
+    if (row_names.length > 0)
+      this.row_names = row_names;
+    else {
+      this.row_names = range(n).map(x => `F${x+1}`)
+    }
   }
 
   static abs(data) {

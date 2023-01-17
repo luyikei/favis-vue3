@@ -1,100 +1,12 @@
 <template>
-  <v-container fluid>
-  <v-row no-gutters>
-    <v-col md="9" ref="svgParent"  class="text-xs-center">
-      <svg ref="svg" :width="svgWidth" :height="svgHeight" :viewBox="svgViewBox">
-        <g ref="svgfield" :transform="svgGOffeset">
-          <g class="hulls" ref="hulls">
-          </g>
-          <g class="links" ref="links"></g>
-          <g class="nodes" ref="nodes"></g>
-        </g>
-      </svg>
-    </v-col>
-    <v-col md="3">
-  <v-card
-    class="mx-auto stick" v-if="showControls"
-  >
-    <v-card-title>Network</v-card-title>
-    <v-card-text fluid>
-    <v-row no-gutters>
-    <v-col md="3" class="mr-3 text-right" >
-      <div class="font-weight-regular">
-        Variable: 
-      </div>
-    </v-col>
-    <v-col md="7">
-      <div class="font-weight-medium">
-        {{ selected }}
-      </div>
-    </v-col>
-    </v-row>
-    <v-row no-gutters>
-    <v-col md="3" class="mr-3 text-right">
-      <div class="font-weight-regular">
-        Factor:
-      </div>
-    </v-col>
-    <v-col md="7">
-      <div class="font-weight-medium">
-        {{ selectedPC }}
-      </div>
-    </v-col>
-    </v-row>
-    </v-card-text>
-    <v-divider class="mx-4"></v-divider>
-    <v-card-text>
-        <v-slider
-          v-model.number="scale"
-          label="Scale"
-          min="0.1"
-          max="2"
-          step="0.01"
-          :thumb-size="24"
-          thumb-label="always"
-          >
-        </v-slider>
-        <v-slider
-          v-model.number="thres"
-          label="Threshold"
-          min="0"
-          max="1"
-          step="0.01"
-          :thumb-size="24"
-          thumb-label="always"
-          >
-        </v-slider>
-        <svg ref="svgcdf" :width="`${cdfProps.width + cdfProps.mx}`" :height="`${cdfProps.height + 2 * cdfProps.my}`" class="mb-4">
-          <g ref="svgcdffield" :transform="`translate(${cdfProps.mx}, ${cdfProps.my})`" >
-          </g>
-        </svg>
-        <v-slider
-          v-model.number="link_opacity"
-          label="Link Opacity"
-          min="0.0"
-          max="1.0"
-          step="0.1"
-          :thumb-size="24"
-          thumb-label="always"
-          >
-        </v-slider>
-        <v-checkbox
-          v-model="link_color"
-          label="Use Factor Color for Link"
-        ></v-checkbox>
-        <v-checkbox
-          v-model="displayHull"
-          label="Disply Convex Hull"
-        ></v-checkbox>
-    <span>Width:</span>
-    <input v-model.number="width" @change="updateGraph" style="width: 50px;" >
-    <span>Height:</span>
-    <input v-model.number="height" @change="updateGraph" style="width: 50px;" >
-    </v-card-text>
-  </v-card>
-    </v-col>
-  </v-row> 
-  </v-container>
+  <svg ref="svg" width="100%" height="100%" :viewBox="svgViewBox">
+    <g ref="svgfield" :transform="svgGOffeset">
+      <g class="hulls" ref="hulls"></g>
+      <g class="links" ref="links"></g>
+      <g class="nodes" ref="nodes"></g>
+    </g>
+  </svg>
+  <div ref="legend" class="legenddiv pa-3"></div>
 </template>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
@@ -113,32 +25,50 @@
   stroke-width: 1.5px;
   stroke-opacity: 1;
 }
+
+.legenddiv {
+  position: absolute;
+  width: 180px;
+  top: 20px;
+  left: 20px;
+}
+
 </style>
 
 <script>
 import * as d3 from "d3";
+import {Legend, Swatches} from "@/objs/d3colorlegend.js"
 
 export default {
-  props: ["ds", "showControls", "networkProps"],
+  props: ["ds", "showControls", "networkProps", "commonProps"],
+  emits: ['clicked', 'selectionChanged'],
   data() {
     return {
-      height: 800,
-      width: 800,
+      width: 400,
+      height: 400,
+      margin: { top: 20, right: 20, bottom: 20, left: 20 },
       x: 0,
       y: 0,
       scale: 1,
       link_color: false,
+      link_opacity: 0.6,
+      opacityisolated: 0.1,
+      thres: 0.4,
       displayHull: true,
-      selected: "",
-      selectedPC: "",
-      cdfData: [],
-      cdfProps: {
-        width:  250,
-        height: 180,
-        mx: 30,
-        my: 20,
+      selection: {
+        selected: "",
+        selectedPC: ""
       },
-      color: d3.scaleOrdinal(d3.schemeTableau10),
+      color: d3.scaleOrdinal([
+        "#f28e2c",
+        "#76b7b2",
+        "#59a14f",
+        "#edc949",
+        "#af7aa1",
+        "#ff9da7",
+        "#9c755f",
+        "#bab0ab"
+      ]),
       simulation: d3
         .forceSimulation()
         .force(
@@ -196,11 +126,8 @@ export default {
                 .attr("stroke-opacity", 0.3)
                 .attr("opacity", 0.3)
                 .on("mouseover", (_, d) => {
-                  this.selectedPC = d["name"];
-                  this.$emit('selectionChanged', {
-                    "selected": this.selected,
-                    "selectedPC": this.selectedPC,
-                  });
+                  this.selection.selectedPC = d["name"];
+                  this.$emit('selectionChanged', this.selection);
                 })
                 ;
               hulls
@@ -216,9 +143,6 @@ export default {
               hulls.exit().remove();
           }
         }),
-      link_opacity: 0.6,
-      thres: 0.4,
-      margin: { top: 20, right: 20, bottom: 40, left: 40 },
     };
   },
   watch: {
@@ -228,44 +152,47 @@ export default {
     link_opacity: function () {
       this.updateGraph();
     },
+    opacityisolated: function () {
+      this.updateGraph();
+    },
     thres: function () {
       this.updateGraph();
-      let gy = this.cdfData.find(v => v.x >= this.thres).y;
-      d3.select(this.$refs.svgcdffield).select(".thresholdLine")
-        .datum([{x:this.thres, y:0}, {x:this.thres, y:gy}]).attr("d", this.cdfProps["line"]);
-      d3.select(this.$refs.svgcdffield).select(".thresholdLineY")
-        .datum([{x:0, y: gy}, {x:this.thres, y: gy}]).attr("d", this.cdfProps["line"]);
     },
     ds: function () {
       this.updateGraph();
     },
-    width: function () {
-      this.updateGraph();
-    },
-    height: function () {
-      this.updateGraph();
-    },
     networkProps:  {
-      handler(val){
-        this.scale = val.scale;
-        this.thres = val.thres;
-        this.link_opacity = val.link_opacity;
-        this.link_color = val.link_color;
-        this.displayHull = val.displayHull;
-        this.selected = val.selected;
-        this.selectedPC = val.selectedPC;
+      handler(networkProps){
+        this.scale = networkProps.scale;
+        this.opacityisolated = networkProps.opacityisolated;
+        this.link_opacity = networkProps.link_opacity;
+        this.link_color = networkProps.link_color;
+        this.displayHull = networkProps.displayHull;
+        this.selection.selected = networkProps.selected;
+        this.selection.selectedPC = networkProps.selectedPC;
+      },
+      deep: true
+    },
+    commonProps: {
+      handler(commonProps){
+        this.thres = commonProps.thres;
+        this.selection.selected = commonProps.selected;
+        this.selection.selectedPC = commonProps.selectedPC;
       },
       deep: true
     }
   },
   computed: {
-    svgViewBox() { return `${this.x + (this.svgWidth - this.svgWidth/this.scale) / 2}, ${this.y + (this.svgWidth - this.svgWidth/this.scale) / 2}, ${this.svgWidth/this.scale}, ${this.svgHeight/this.scale}` },
+    svgViewBox() { return `${this.x + (this.svgWidth - this.svgWidth/this.scale) / 2},
+    ${this.y + (this.svgWidth - this.svgWidth/this.scale) / 2}, 
+    ${this.svgWidth/this.scale}, 
+    ${this.svgHeight/this.scale}` },
     
     svgWidth() {
       return this.width + this.margin.left + this.margin.right;
     },
     svgHeight() {
-      return this.height + this.margin.top + this.margin.right;
+      return this.height + this.margin.top + this.margin.bottom;
     },
     svgGOffeset() {
       return "translate(" + this.svgWidth / 2 + "," + this.svgHeight / 2 + ")";
@@ -273,9 +200,18 @@ export default {
   },
   methods: {
     resizeHandler() {
-      console.log("resized");
+    },
+    networkPropsUpdated(networkProps) {
+        this.scale = networkProps.scale;
+        this.thres = networkProps.thres;
+        this.link_opacity = networkProps.link_opacity;
+        this.link_color = networkProps.link_color;
+        this.displayHull = networkProps.displayHull;
+        this.selection.selected = networkProps.selected;
+        this.selection.selectedPC = networkProps.selectedPC;
     },
     updateGraph() {
+      console.log("NETWORK: updateGraph");
       this.simulation.stop();
       let graph = {};
       graph["nodes"] = [];
@@ -288,39 +224,55 @@ export default {
         });
       });
 
-      let lnks = Array(this.ds.names.length)
-        .fill(0)
-              .map(() => Array(this.ds.names.length).fill(0));
-            for (let i = 0; i < this.ds.matrix.length; i++) {
-              for (let j = 0; j < this.ds.matrix[i].length - 1; j++) {
-                const element1 = this.ds.matrix[i][j].z;
-                if (Math.abs(element1) <= this.thres) continue;
-                for (let k = j + 1; k < this.ds.matrix[i].length; k++) {
-                  const element2 = this.ds.matrix[i][k].z;
-                  if (
-                    !lnks[j][k]  &&
+      let groups = new Set();
+      groups.add(0);
+      let lnks = Array(this.ds.names.length).fill(0).map(() => Array(this.ds.names.length).fill(0));
+      for (let i = 0; i < this.ds.matrix.length; i++) {
+        for (let j = 0; j < this.ds.matrix[i].length - 1; j++) {
+          const element1 = this.ds.matrix[i][j].z;
+          if (Math.abs(element1) <= this.thres) continue;
+          for (let k = j + 1; k < this.ds.matrix[i].length; k++) {
+            const element2 = this.ds.matrix[i][k].z;
+            if (
+              !lnks[j][k]  &&
               Math.abs(element2) > this.thres
-            ) {
-              lnks[j][k] = i + 1;
-              graph["nodes"][j]["group"] = i + 1;
-              graph["nodes"][k]["group"] = i + 1;
-              graph["nodes"][j]["groups"].add(i + 1);
-              graph["nodes"][k]["groups"].add(i + 1);
-              graph["links"].push({
-                source: this.ds.names[j],
-                target: this.ds.names[k],
-                value: 1,
-                group: i + 1
-              });
+              ) {
+                lnks[j][k] = i + 1;
+                graph["nodes"][j]["group"] = i + 1;
+                graph["nodes"][k]["group"] = i + 1;
+                graph["nodes"][j]["groups"].add(i + 1);
+                graph["nodes"][k]["groups"].add(i + 1);
+                graph["links"].push({
+                  source: this.ds.names[j],
+                  target: this.ds.names[k],
+                  value: 1,
+                  group: i + 1
+                });
+                groups.add(i + 1);
             }
           }
         }
       }
+    
+      let domainlables = {};
+      let domain = Array.from(groups);
+      this.color.domain(domain);
+      domainlables[0] = "Does not belong to any factor"
+      for (let i = 1; i < domain.length; ++i) {
+        domainlables[domain[i]] = this.ds.row_names[domain[i] - 1];
+      }
+      this.$refs.legend.innerHTML = "";
+      this.$refs.legend.appendChild(
+        Swatches(this.color, 
+        {columns: "180px", domainlables: domainlables}));
+        
+      console.log(domainlables);
+      console.log(groups);
 
       let links = d3.select(this.$refs.links);
       let nodes = d3.select(this.$refs.nodes);
       let svg = d3.select(this.$refs.svg);
-      
+
       svg
           .attr("pointer-events", "all").call(d3
           .drag()
@@ -351,6 +303,7 @@ export default {
         .enter()
         .append("circle")
         .attr("r", 5)
+        .attr("opacity", (d) => d.group == 0 ? this.opacityisolated : 1)
         .attr("fill",  (d) => {
           return this.color(d.group);
         })
@@ -370,13 +323,14 @@ export default {
                   .attr("stroke-opacity", 1);
               }
             });
+          this.$emit('clicked', {
+            clickedVar: id,
+            clickedPC: ""
+          });
         })
         .on("mouseover", (_, d) => {
-          this.selected = d.id;
-          this.$emit('selectionChanged', {
-            "selected": this.selected,
-            "selectedPC": this.selectedPC,
-          });
+          this.selection.selected = d.id;
+          this.$emit('selectionChanged', this.selection);
         })
         .call(drag(this.simulation))
         .append("title")
@@ -384,6 +338,7 @@ export default {
           return d.id;
         });
       node
+        .attr("opacity", (d) => d.group == 0 ? this.opacityisolated : 1)
         .attr("fill", (d) => {
           return this.color(d.group);
         })
@@ -400,11 +355,8 @@ export default {
           return Math.sqrt(d.value);
         })
         .on("mouseover", (_, d) => {
-          this.selectedPC = this.ds.row_names[d.group-1];
-          this.$emit('selectionChanged', {
-            "selected": this.selected,
-            "selectedPC": this.selectedPC,
-          });
+          this.selection.selectedPC = this.ds.row_names[d.group-1];
+          this.$emit('selectionChanged', this.selection);
         });
       link
         .attr("stroke", this.link_color ? d => this.color(d.group) : "#999")
@@ -444,65 +396,6 @@ export default {
           .on("end", dragended);
       }
     },
-    updateCDFGraph() {
-      let svg = d3.select(this.$refs.svgcdffield);
-      let height = this.cdfProps.height;
-      let width = this.cdfProps.width;
-      let x = d3.scaleLinear()
-          .range([0, width]);
-      let y = d3.scaleLinear()
-          .range([height, 0]);
-      let xAxis = d3.axisBottom(x);
-      let yAxis = d3.axisLeft(y);
-      let line = d3.line()
-          .x(function(d) { return x(d.x); })
-          .y(function(d) { return y(d.y); });
-      this.cdfProps["line"] = line;
-
-      svg.call(d3
-          .drag()
-          .on("drag", (event) => {
-            let thres = x.invert(event.x - this.cdfProps.mx);
-            this.thres = thres;
-          }))
-      
-
-      let data = this.cdfData;
-
-      // scale the x and y axis according the the max and min values, could also keep 
-      // track of min and max values in loop above. The .nice() will round the min and max values to
-      // nice values
-      x.domain(d3.extent(data, function(d) { return d.x; })).nice();
-      y.domain(d3.extent(data, function(d) { return d.y; })).nice();
-      
-      svg.append("g")
-            .attr("class", "x axis")
-            .attr("transform", "translate(0," + height + ")")
-            .call(xAxis);
-
-      svg.append("g")
-            .attr("class", "y axis")
-            .call(yAxis);
-
-      svg.append("path").datum(data)
-        .attr("class", "line")
-        .attr("d", line)
-        .style("stroke", function() { return "#666666"; })
-        .style("fill", "transparent");
-
-      let gy = this.cdfData.find(v => v.x >= this.thres).y;
-      svg.append("path").datum([{x:this.thres, y:0}, {x:this.thres, y:gy}])
-        .attr("class", "thresholdLine")
-        .attr("d", line)
-        .style("stroke", function() { return "#AAAAAA"; })
-        .style("fill", "transparent");
-
-      svg.append("path").datum([{x:0, y: gy}, {x:this.thres, y: gy}])
-        .attr("class", "thresholdLineY")
-        .attr("d", line)
-        .style("stroke", function() { return "#AAAAAA"; })
-        .style("fill", "transparent");
-      }
   },
   created() {
     window.addEventListener("resize", this.resizeHandler);
@@ -511,25 +404,7 @@ export default {
     window.addEventListener("resize", this.resizeHandler);
   },
   mounted() {
-    let cdfTemp = [];
-    for (let i = 0; i < this.ds.matrix.length; i++) {
-      for (let j = 0; j < this.ds.matrix[i].length; j++) {
-        cdfTemp.push(Math.abs(this.ds.matrix[i][j].z));
-      }
-    }
-    cdfTemp.sort();
-    for (let i = 0; i < cdfTemp.length; ++i) {
-      this.cdfData.push({
-        x: cdfTemp[i],
-        y: (i + 1) / cdfTemp.length
-      });
-      this.cdfData.push({
-        x: i < cdfTemp.length - 1 ? cdfTemp[i+1] : cdfTemp[i] + 0.1,
-        y: (i + 1) / cdfTemp.length
-      });
-    }
-    this.updateGraph();
-    this.updateCDFGraph();
+    // this.updateGraph(); Through updated in CommonControls
   },
 };
 </script>

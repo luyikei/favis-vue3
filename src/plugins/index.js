@@ -17,10 +17,14 @@ const store = createStore({
   state () {
     return {
         dss: [],
-        tabs: [new Tab("Getting Started", "test", Tab.Types.HOME)]
+        tabs: [new Tab("Getting Started", "test", Tab.Types.HOME)],
+        tabWindowHeight: 0,
     }
   },
   mutations: {
+    updateWindowHeight (state, height) {
+      state.tabWindowHeight = height;
+    },
     addDS (state, ds) {
       state.dss.push(ds);
     },

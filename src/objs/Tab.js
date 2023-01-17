@@ -24,7 +24,7 @@ export class Tab {
             case(Tab.Types.HOME):
                 this.type = type;
                 break;
-            case(Tab.Types.SINGLE):
+            case(Tab.Types.MULTIPLE):
                 this.type = type;
                 break;
             default:
@@ -39,7 +39,7 @@ export class Tab {
         PARA:"para",
         NETWORK:"network",
         HOME:"home",
-        SINGLE:"single",
+        MULTIPLE:"multiple",
     };
 }
 

@@ -1,75 +1,32 @@
 <template>
-  <v-container fluid>
-  <v-row no-gutters>
-    <v-col md="9" ref="svgParent"  class="text-xs-center hm">
-    <svg ref="svg" :width="svgWidth" :height="svgHeight" :viewBox="svgViewBox" >
-      <g ref="svgfield" :transform="svgGOffeset">
-        <g ref="xaxis"></g>
-        <g ref="yaxis"></g>
-      </g>
-    </svg>
-    </v-col>
-    <v-col md="3" class="stick">
-    <v-card
-      class="mx-auto stick"
-      v-if="showControls"
-    >
-    <v-card-title>Heatmap</v-card-title>
-    <v-card-text>
-        <v-slider
-          v-model.number="scale"
-          label="Scale"
-          min="0.1"
-          max="2"
-          step="0.01"
-          :thumb-size="24"
-          thumb-label="always"
-          >
-        </v-slider>
-    <v-btn
-      block
-      outlined
-      color="indigo"
-      v-on:click="resetSorting"
-      depressed
-      class="mb-4"  
-    >
-    Reset Sorting
-    </v-btn>
-    
-    <v-checkbox
-      v-model="isAbs"
-      label="Use Absolute Values"
-    ></v-checkbox>
-    <v-checkbox
-      v-model="isT"
-      label="Transposed"
-    ></v-checkbox>
-        <v-text-field
-        v-model="searchText"
-          label="Search"
-        ></v-text-field>
-    </v-card-text>
-    </v-card>
-    </v-col>
-  </v-row> 
-  </v-container>
+  <svg ref="svg" width="100%" height="100%" :viewBox="svgViewBox" >
+    <g ref="svgfield" :transform="svgGOffeset">
+      <g ref="xaxis"></g>
+      <g ref="yaxis"></g>
+    </g>
+  </svg>
+  <div ref="legend" class="legenddiv pa-3"></div>
 </template>
 <script>
 
 import * as d3 from "d3";
+import {Legend, Swatches} from "@/objs/d3colorlegend.js"
+import { create, all } from 'mathjs'
+
+const config = { }
+const math = create(all, config)
 
 import {CSVData} from '@/objs/CSVData.js';
 
 export default {
-  props: ["ds", "showControls"],
+  props: ["ds", "heatmapProps", "commonProps", "showControls"],
   data() {
     return {
-      margin: {top: 300, right: 20, bottom: 40, left: 70},
-      height: 800,
+      margin: {top: 0, right: 20, bottom: 40, left: 70},
+      height: 300,
       width: 800,
 
-      size: 15,
+      size: 20,
       x: 0,
       y: 0,
       scale: 1,
@@ -79,9 +36,19 @@ export default {
       absDS: null,
       cds: {},
 
+      thres: 0,
+
       // 
       isAbs: false,
       isT: false,
+      isThresholded: true,
+      sortOnClick: true,
+      resetSortingCount: 0,
+
+      selection: {
+        selected: "",
+        selectedPC: ""
+      },
 
       // Current Column and Row Order, matrix
       order: [],
@@ -91,6 +58,8 @@ export default {
       matrix: [],
 
       searchText: "",
+
+      legend: null,
 
       xScale: d3.scaleBand(),
       yScale: d3.scaleBand(),
@@ -109,6 +78,9 @@ export default {
     isT: function() {
       this.reset();
     },
+    resetSortingCount: function() {
+      this.resetSorting();
+    },
     size: function () {
       this.updateGraph();
     },
@@ -125,17 +97,60 @@ export default {
     searchText: function() {
       this.filterd(this.searchText);
       this.updateGraph();
+    },
+    heatmapProps:  {
+      handler(heatmapProps){
+        this.resetSortingCount = heatmapProps.resetSorting;
+        this.scale = heatmapProps.scale;
+        this.isAbs = heatmapProps.isAbs;
+        this.isT = heatmapProps.isT;
+        this.isThresholded = heatmapProps.isThresholded;
+        this.sortOnClick = heatmapProps.sortOnClick;
+
+        if (this.legend) this.legend.threshold(this.isThresholded ? this.thres : -1);
+        
+        let svg = d3.select(this.$refs.svgfield);
+        svg.selectAll(".cell").style("fill", d => this.thres <= Math.abs(d.z) || !this.isThresholded ? this.cScale(d.z) : this.cScale(0));
+      },
+      deep: true
+    },
+    commonProps: {
+      handler(commonProps){
+        this.selection.selected = commonProps.selected;
+        this.selection.selectedPC = commonProps.selectedPC;
+        this.searchText = commonProps.searchText;
+        this.thres = commonProps.thres;
+
+        if (this.legend) this.legend.threshold(this.isThresholded ? this.thres : -1);
+        
+
+        let svg = d3.select(this.$refs.svgfield);
+        svg.selectAll(".matcolumn").selectAll("text")
+                          .style('fill', (d, i) =>
+                            (!this.isT && this.cds.names[d] == this.selection.selected) ||
+                            (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  'black'
+                          );
+        svg.selectAll(".matrow")
+                          .style('fill', (d, i) =>
+                            (!this.isT && this.cds.row_names[i] == this.selection.selectedPC) ||
+                            (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  'black'
+                          );
+
+        svg.selectAll(".cell").style("fill", d => this.thres <= Math.abs(d.z) || !this.isThresholded ? this.cScale(d.z) : this.cScale(0))
+      },
+      deep: true
     }
   },
   computed: {
     svgViewBox() { return `${this.x}, ${this.y}, ${this.svgWidth/this.scale}, ${this.svgHeight/this.scale}` },
     svgWidth() { return this.width + this.margin.left + this.margin.right },
     svgHeight() { return this.height + this.margin.top + this.margin.right },
-    svgGOffeset() { return "translate(" + this.margin.left + "," + this.margin.top + ")" },
+    svgGOffeset() { return "translate(" + this.margin.left + "," + this.margin.top + ")" }
   },
   methods: {
     reset() {
       this.cds = this.isAbs ? this.absDS : this.ds;
+
       if (this.isT) {
         let newds = {
           orders: this.cds.rorders,
@@ -186,7 +201,7 @@ export default {
 
       this.xScale.range([0, this.size * this.order.length]).domain(this.order);
       this.yScale.range([0, this.size * this.rorder.length]).domain(this.rorder);
-
+      
       d3.select(this.$refs.svg)
           .attr("pointer-events", "all").call(d3
           .drag()
@@ -201,7 +216,7 @@ export default {
             d3.select(that.$refs.svg).style("cursor", null);
           }));
 
-      let createCells = function (row) {
+      let createCells = function(row) {
         d3.select(this).selectAll(".cell")
             .data(row)
             .join("rect")
@@ -209,9 +224,9 @@ export default {
             .attr("x", (d) => {
               return that.xScale(d.x);
             })
-            .attr("width", that.size)
-            .attr("height", that.size)
-            .style("fill", d => that.cScale(d.z))
+            .attr("width", that.size-1)
+            .attr("height", that.size-1)
+            .style("fill", d => that.thres <= Math.abs(d.z) || !that.isThresholded? that.cScale(d.z) : that.cScale(0))
       }
 
       svg.selectAll(".matcolumn").data(this.order, d => d)
@@ -219,7 +234,7 @@ export default {
           enter => enter
                     .append("g")
                     .attr("class", "matcolumn")
-                    .attr("transform", (d) =>{
+                    .attr("transform", (d) => {
                         return "translate(" + this.xScale(d) + ")rotate(-90)";
                         })
                     .call(g => g.append("line")
@@ -231,14 +246,23 @@ export default {
                       .attr("dy", ".32em")
                       .attr("text-anchor", "start")
                       .text((d) => this.cds.names[d]))
+                      .style('fill', (d, i) =>
+                            (!this.isT && this.cds.names[d] == this.selection.selected) ||
+                            (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  'black'
+                          )
                       .on("click", (_, d) => {
-                        this.rorder_i = parseInt(d + 1);
+                        if (this.sortOnClick)
+                            this.rorder_i = parseInt(d + 1);
                       }),
           update => update
                       .attr("transform", (d) => "translate(" + this.xScale(d) + ")rotate(-90)")
                       .call(g => g.selectAll("text")
                         .attr("y", this.size / 2)
                         .attr("font-size", this.size)
+                        .style('fill', (d, i) =>
+                              (!this.isT && this.cds.names[d] == this.selection.selected) ||
+                              (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  'black'
+                            )
                         .text((d) => this.cds.names[d])),
 
           exit => exit.remove()
@@ -249,6 +273,10 @@ export default {
         .join(enter => enter.append("g")
                 .attr("class", "matrow")
                 .attr("transform", (d, i) => "translate(0," + this.yScale(i) + ")")
+                .style('fill', (d, i) =>
+                  (!this.isT && this.cds.row_names[i] == this.selection.selectedPC) ||
+                  (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  'black'
+                )
                 .call(g => g.append("line")
                   .attr("x2", this.width))
                 .call(g => g.append("text")
@@ -259,11 +287,16 @@ export default {
                   .attr("text-anchor", "end")
                   .text((d, i) => this.cds.row_names[i])
                   .on("click", (_, d) => {
-                    this.order_i = parseInt(d[0].y + 1);
+                    if (this.sortOnClick)
+                      this.order_i = parseInt(d[0].y + 1);
                   }))
                 .each(createCells),
               update => update
                           .attr("transform", (d, i) => "translate(0," + this.yScale(i) + ")")
+                          .style('fill', (d, i) =>
+                            (!this.isT && this.cds.row_names[i] == this.selection.selectedPC) ||
+                            (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  'black'
+                          )
                           .call(g => g.selectAll("text")
                             .attr("y", this.size / 2)
                             .attr("font-size", this.size))
@@ -281,6 +314,11 @@ export default {
     this.rorder = this.ds.rorders[0];
     this.matrix = this.ds.matrix;
     this.updateGraph();
+    this.legend = new Legend(this.cScale, {
+      width: 160,
+      title: "Factor Loading",
+    });
+    this.$refs.legend.appendChild(this.legend.node());
   }
 }
 </script>
@@ -313,4 +351,11 @@ export default {
   .hm svg {
     font: 10px sans-serif;
   }
+
+.legenddiv {
+  position: absolute;
+  top: 20px;
+  margin-left: 20px;
+}
+
 </style>

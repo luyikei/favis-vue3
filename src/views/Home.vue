@@ -6,6 +6,9 @@
   </v-app>
 </template>
 
+<style scoped>
+</style>
+
 <script>
 import Tab from '@/views/Tab.vue';
 
@@ -21,14 +24,10 @@ export default {
   }),
   methods: {
     createHeatMap() {
-      console.log(this.$tabs);
-      console.log("create heatmap")
     },
     createNetwork() {
-      console.log("creating network")
     },
     createGraph() {
-      console.log("creating graph")
     }
 
   }
