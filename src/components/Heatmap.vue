@@ -22,6 +22,7 @@ import {Tooltip} from '@/objs/d3tooltip.js';
 
 export default {
   props: ["ds", "heatmapProps", "commonProps", "showControls"],
+  emits: ['clicked', 'selectionChanged'],
   data() {
     return {
       margin: {top: 0, right: 20, bottom: 40, left: 70},
@@ -51,10 +52,13 @@ export default {
       tocolorfactor: false,
 
       selection: {
-        selected: "",
-        selectedPC: ""
+        var: null,
+        factor: null
       },
-      clickedVar: "",
+      clicked: {
+        var: null,
+        factor: null
+      },
 
       // Current Column and Row Order, matrix
       order: [],
@@ -108,10 +112,15 @@ export default {
       this.filterd(this.searchText);
       this.updateGraph();
     },
-    clickedVar() {
-      let svg = d3.select(this.$refs.svgfield);
-      svg.selectAll(".matcolumn").call(g => g.selectAll("rect")
-                    .style("stroke", d => this.cds.names[d] == this.clickedVar ? "red" : "transparent"));
+    clicked:  {
+      handler(clicked){
+        let svg = d3.select(this.$refs.svgfield);
+        svg.selectAll(".matcolumn").call(g => g.selectAll("rect")
+                      .style("stroke", d => d == this.clicked.var && !this.isT ? "red" : "transparent"));
+        svg.selectAll(".matrow").call(g => g.selectAll(".highlight")
+                      .style("stroke", (d,i) => d[0].y == this.clicked.var && this.isT ? "red" : "transparent"));
+      },
+      deep: true
     },
     heatmapProps:  {
       handler(heatmapProps){
@@ -132,11 +141,12 @@ export default {
     },
     commonProps: {
       handler(commonProps){
-        this.selection.selected = commonProps.selected;
-        this.selection.selectedPC = commonProps.selectedPC;
+        this.selection.var = commonProps.selectedVar;
+        this.selection.factor = commonProps.selectedFactor;
+        this.clicked.var = commonProps.clickedVar;
+        this.clicked.factor = commonProps.clickedFactor;
         this.searchText = commonProps.searchText;
         this.thres = commonProps.thres;
-        this.clickedVar = commonProps.clickedVar;
 
         if (this.legend) this.legend.threshold(this.isThresholded ? this.thres : -1);
         
@@ -144,13 +154,13 @@ export default {
         let svg = d3.select(this.$refs.svgfield);
         svg.selectAll(".matcolumn").selectAll("text")
                           .style('fill', (d, i) =>
-                            (!this.isT && this.cds.names[d] == this.selection.selected) ||
-                            (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  (this.isT && this.tocolorfactor ? this.factorcolor(d+1) : 'black')
+                            (!this.isT && d == this.selection.var) ||
+                            (this.isT && d == this.selection.factor) ? 'red' :  (this.isT && this.tocolorfactor ? this.factorcolor(d+1) : 'black')
                           );
         svg.selectAll(".matrow")
                           .style('fill', (d, i) =>
-                            (!this.isT && this.cds.row_names[i] == this.selection.selectedPC) ||
-                            (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
+                            (!this.isT && i == this.selection.factor) ||
+                            (this.isT && i == this.selection.var) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
                           );
 
         svg.selectAll(".cell").style("fill", d => this.thres <= Math.abs(d.z) || !this.isThresholded ? this.cScale(d.z) : this.cScale(0))
@@ -169,18 +179,7 @@ export default {
       this.cds = this.isAbs ? this.absDS : this.ds;
 
       if (this.isT) {
-        let newds = {
-          orders: this.cds.rorders,
-          rorders: this.cds.orders,
-          csvData: this.cds.csvData,
-          names: this.cds.row_names,
-          row_names: this.cds.names,
-        };
-
-        let newMat = d3.transpose(this.cds.matrix);
-        newds["matrix"] = newMat;
-
-        this.cds = newds;
+        this.cds = CSVData.transpose(this.cds);
       }
       this.order = this.cds.orders[0];
       this.rorder = this.cds.rorders[0];
@@ -222,7 +221,8 @@ export default {
       d3.select(this.$refs.svg)
           .attr("pointer-events", "all")
           .on("click", () => {
-            this.clickedVar = "";
+            this.clicked.var = null;
+            this.clicked.factor = null;
           })
           .call(d3.drag()
             .on("start", () => {
@@ -236,30 +236,6 @@ export default {
               d3.select(that.$refs.svg).style("cursor", null);
             })
           );
-
-      let createCells = function(row) {
-        d3.select(this).selectAll(".cell")
-            .data(row)
-            .join("rect")
-            .attr("class", "cell")
-            .attr("x", (d) => {
-              return that.xScale(d.x);
-            })
-            .attr("width", that.size-2)
-            .attr("height", that.size-2)
-            .style("fill", d => that.thres <= Math.abs(d.z) || !that.isThresholded? that.cScale(d.z) : that.cScale(0))
-            .on("click", (e, d) =>{
-              that.clickedVar = that.cds.names[d.x];
-              e.stopPropagation();
-            })
-            .on("mouseover", (event) => that.tooltip.mouseover(event))
-            .on("mousemove", (event, d) => that.tooltip.mousemove(event, {
-              variable: that.ds.names[d.x],
-              factor: that.ds.row_names[d.y],
-              codebook: that.ds.codebook[that.ds.names[d.x]]
-            }))
-            .on("mouseleave", (event) => that.tooltip.mouseleave(event))
-      }
 
       svg.selectAll(".matcolumn").data(this.order, d => d)
         .join(
@@ -276,7 +252,7 @@ export default {
                       .attr("x", -this.size * this.rorder.length+1)
                       .attr("width", this.size * this.rorder.length)
                       .attr("stroke-width", 1)
-                      .style("stroke", d => this.cds.names[d] == this.clickedVar ? "red" : "transparent")
+                      .style("stroke", d => d == this.clicked.var && !this.isT ? "red" : "transparent")
                       .attr("height", this.size).style("fill", "transparent"))
                     .call(g => g.append("text")
                       .attr("x", 6)
@@ -286,8 +262,8 @@ export default {
                       .attr("text-anchor", "start")
                       .text((d) => this.cds.names[d]))
                       .style('fill', (d, i) =>
-                            (!this.isT && this.cds.names[d] == this.selection.selected) ||
-                            (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  (this.isT && this.tocolorfactor ? this.factorcolor(d+1) : 'black')
+                            (!this.isT && d == this.selection.var) ||
+                            (this.isT && d == this.selection.factor) ? 'red' :  (this.isT && this.tocolorfactor ? this.factorcolor(d+1) : 'black')
                           )
                       .on("click", (e, d) => {
                         if (this.sortOnClick)
@@ -297,18 +273,52 @@ export default {
           update => update
                       .attr("transform", (d) => "translate(" + this.xScale(d) + ")rotate(-90)")
                       .call(g => g.append("rect")
-                        .style("stroke", d => this.cds.names[d] == this.clickedVar ? "red" : "transparent"))
+                        .style("stroke", d => d == this.clicked.var && !this.isT ? "red" : "transparent"))
                       .call(g => g.selectAll("text")
                         .attr("y", this.size / 2)
                         .attr("font-size", this.size)
                         .style('fill', (d, i) =>
-                              (!this.isT && this.cds.names[d] == this.selection.selected) ||
-                              (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  (this.isT && this.tocolorfactor ? this.factorcolor(d+1) : 'black')
+                              (!this.isT && d == this.selection.var) ||
+                              (this.isT && d == this.selection.factor) ? 'red' :  (this.isT && this.tocolorfactor ? this.factorcolor(d+1) : 'black')
                             )
                         .text((d) => this.cds.names[d])),
 
           exit => exit.remove()
       );
+
+      let createCells = (row, rowElem) => {
+        rowElem.selectAll(".cell")
+            .data(row)
+            .join("rect")
+            .attr("class", "cell")
+            .attr("x", (d) => {
+              return this.xScale(d.x);
+            })
+            .attr("width", this.size-2)
+            .attr("height", this.size-2)
+            .style("fill", d => this.thres <= Math.abs(d.z) || !this.isThresholded? this.cScale(d.z) : this.cScale(0))
+            .on("click", (e, d) =>{
+              if (!this.isT) {
+                this.clicked.var = d.x;
+                this.clicked.factor = d.y;
+              } else {
+                this.clicked.var = d.y;
+                this.clicked.factor = d.x;
+              }
+              this.$emit("clicked", this.clicked);
+              e.stopPropagation();
+            })
+            .on("mouseover", (event) => this.tooltip.mouseover(event))
+            .on("mousemove", (event, d) =>
+            {
+              this.tooltip.mousemove(event, {
+                var: !this.isT ? this.cds.names[d.x] : this.cds.row_names[d.y],
+                factor: !this.isT ? this.cds.row_names[d.y] : this.cds.names[d.x],
+                codebook: !this.isT ? this.cds.codebook[this.cds.names[d.x]] : this.cds.codebook[this.cds.row_names[d.y]]
+              });
+            })
+            .on("mouseleave", (event) => this.tooltip.mouseleave(event))
+      }
 
       svg.selectAll(".matrow")
         .data(this.matrix, d => d)
@@ -316,11 +326,19 @@ export default {
                 .attr("class", "matrow")
                 .attr("transform", (d, i) => "translate(0," + this.yScale(i) + ")")
                 .style('fill', (d, i) =>
-                  (!this.isT && this.cds.row_names[i] == this.selection.selectedPC) ||
-                  (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
+                  (!this.isT && i == this.selection.factor) ||
+                  (this.isT && i == this.selection.var) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
                 )
                 .call(g => g.append("line")
                   .attr("x2", this.width))
+                .call(g => g.append("rect")
+                  .attr("class", "highlight")
+                  .attr("y", -1)
+                  .attr("x", 0)
+                  .attr("width", this.size * this.order.length)
+                  .attr("stroke-width", 1)
+                  .style("stroke", (d,i) => d[0].y == this.clicked.var && this.isT ? "red" : "transparent")
+                  .attr("height", this.size).style("fill", "transparent"))
                 .call(g => g.append("text")
                   .attr("x", -6)
                   .attr("y", this.size / 2)
@@ -332,17 +350,19 @@ export default {
                     if (this.sortOnClick)
                       this.order_i = parseInt(d[0].y + 1);
                   }))
-                .each(createCells),
+                .each(function(v) {return createCells.bind(that)(v, d3.select(this))}),
               update => update
                           .attr("transform", (d, i) => "translate(0," + this.yScale(i) + ")")
                           .style('fill', (d, i) =>
-                            (!this.isT && this.cds.row_names[i] == this.selection.selectedPC) ||
-                            (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
+                            (!this.isT && i == this.selection.factor) ||
+                            (this.isT && i == this.selection.var) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
                           )
+                          .call(g => g.selectAll(".highlight")
+                            .style("stroke", (d,i) => d[0].y == this.clicked.var && this.isT ? "red" : "transparent"))
                           .call(g => g.selectAll("text")
                             .attr("y", this.size / 2)
                             .attr("font-size", this.size))
-                            .each(createCells),
+                            .each(function(v) {return createCells.bind(that)(v, d3.select(this))}),
               exit => exit.remove());
     }
   },

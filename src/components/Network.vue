@@ -58,13 +58,12 @@ export default {
       thres: 0.4,
       displayHull: true,
       selection: {
-        selected: "",
-        selectedPC: ""
+        var: null,
+        factor: null
       },
       clicked: {
-        clickedVarI: -1,
-        clickedVar: "",
-        clickedPC: ""
+        var: null,
+        factor: null
       },
       attractiveForce: 10,
       repulsiveForce: 30,
@@ -135,13 +134,13 @@ export default {
               .attr("stroke-opacity", 0.3)
               .attr("opacity", 0.3)
               .on("mouseover", (event, d) => {
-                this.selection.selectedPC = d["name"];
+                this.selection.factor = d["factor"] - 1;
                 this.$emit('selectionChanged', this.selection);
                 this.tooltip.mouseover(event)
               })
               .on("mousemove", (event, d) =>{
                 this.tooltip.mousemove(event, {
-                  variable: "",
+                  var: "",
                   factor: d["name"]})
                 })
               .on("mouseleave", (event) => this.tooltip.mouseleave(event))
@@ -205,8 +204,6 @@ export default {
         this.link_opacity = networkProps.link_opacity;
         this.link_color = networkProps.link_color;
         this.displayHull = networkProps.displayHull;
-        this.selection.selected = networkProps.selected;
-        this.selection.selectedPC = networkProps.selectedPC;
         this.attractiveForce = networkProps.attractiveForce;
         this.repulsiveForce = networkProps.repulsiveForce;
       },
@@ -215,8 +212,10 @@ export default {
     commonProps: {
       handler(commonProps){
         this.thres = commonProps.thres;
-        this.selection.selected = commonProps.selected;
-        this.selection.selectedPC = commonProps.selectedPC;
+        this.selection.var = commonProps.selectedVar;
+        this.selection.factor = commonProps.selectedFactor;
+        this.clicked.var = commonProps.clickedVar;
+        this.clicked.factor = commonProps.clickedFactor;
       },
       deep: true
     }
@@ -245,8 +244,6 @@ export default {
         this.link_opacity = networkProps.link_opacity;
         this.link_color = networkProps.link_color;
         this.displayHull = networkProps.displayHull;
-        this.selection.selected = networkProps.selected;
-        this.selection.selectedPC = networkProps.selectedPC;
     },
     updateGraph() {
       console.log("NETWORK: updateGraph");
@@ -320,7 +317,10 @@ export default {
       let svg = d3.select(this.$refs.svg);
 
       svg
-        .on("click", () => this.clicked = {})
+        .on("click", () => {
+          this.clicked = {};
+          this.$emit('clicked', this.clicked);
+        })
         .attr("pointer-events", "all").call(d3
         .drag()
         .on("start", () => {
@@ -348,15 +348,15 @@ export default {
       let node = nodes.selectAll("circle").data(graph.nodes, (d) => d.id);
       let nodestyle = node => {
         node
-          .attr("r", d => this.clicked.clickedVar && this.clicked.clickedVar == d.id ? 7 : 5)
+          .attr("r", d => this.clicked.var && this.clicked.var == d.i ? 7 : 5)
           .attr("stroke", (d) => {
-            return this.clicked.clickedVar && (this.clicked.clickedVar == d.id || lnks[this.clicked.clickedVarI][d.i]) ? "black" : "transparent";
+            return this.clicked.var && (this.clicked.var == d.i || lnks[this.clicked.var][d.i]) ? "black" : "transparent";
           })
           .attr("stroke-opacity", 1)
           .attr("opacity", (d) => {
-            if (this.clicked.clickedVar && (this.clicked.clickedVar == d.id || lnks[this.clicked.clickedVarI][d.i])) return 1;
+            if (this.clicked.var && (this.clicked.var == d.i || lnks[this.clicked.var][d.i])) return 1;
             if (d.group == 0) return this.opacityisolated;
-            if (this.clicked.clickedVar) return 0.5;
+            if (this.clicked.var) return 0.5;
             return 1;
           })
           .attr("fill",  (d) =>  this.color(d.group) );
@@ -368,22 +368,18 @@ export default {
         .append("circle")
         .call(nodestyle)
         .on("click", (e, d) => {
-          this.clicked = {
-            clickedVarI: d.i,
-            clickedVar: d.id,
-            clickedPC: ""
-          };
+          this.clicked.var = d.i;
           this.$emit('clicked', this.clicked);
           e.stopPropagation();
         })
         .on("mouseover", (event, d) => {
-          this.selection.selected = d.id;
+          this.selection.var = d.i;
           this.$emit('selectionChanged', this.selection);
           this.tooltip.mouseover(event)
         })
         .on("mousemove", (event, d) =>{
           this.tooltip.mousemove(event, {
-            variable: d.id,
+            var: d.id,
             factor: Array.from(d.groups).map(x=>this.ds.row_names[x-1]).join(', '),
             codebook: this.ds.codebook[d.id]
           })
@@ -399,9 +395,9 @@ export default {
         link
           .attr("stroke", this.link_color ? d => this.color(d.group) : "#999")
           .attr("stroke-opacity", d => {
-            if (this.clicked.clickedVar && d.source != this.clicked.clickedVar && d.target != this.clicked.clickedVar)
+            if (this.clicked.var && d.source != this.ds.names[this.clicked.var] && d.target != this.ds.names[this.clicked.var])
               return Math.min(0.1, this.link_opacity);
-            if (this.clicked.clickedVar)
+            if (this.clicked.var)
               return 1
             return this.link_opacity;
           })
@@ -415,12 +411,12 @@ export default {
         .append("line")
         .call(linkstyle)
         .on("mouseover", (event, d) => {
-          this.selection.selectedPC = this.ds.row_names[d.group-1];
+          this.selection.factor = d.group-1;
           this.$emit('selectionChanged', this.selection);
           this.tooltip.mouseover(event);
         })
         .on("mousemove", (event, d) => this.tooltip.mousemove(event, {
-            variable: `${d.source.id} ${d.target.id}`,
+            var: `${d.source.id} ${d.target.id}`,
             factor: this.ds.row_names[d.group-1]
         }))
         .on("mouseleave", (event) => this.tooltip.mouseleave(event));

@@ -13,7 +13,7 @@
         Variable: 
     </v-col>
     <v-col md="8">
-        {{ commonProps.selected }}
+        {{ ds.names[commonProps.selectedVar] }}
     </v-col>
     </v-row>
     <v-row no-gutters>
@@ -21,7 +21,7 @@
         Factor:
     </v-col>
     <v-col md="8">
-        {{ commonProps.selectedPC }}
+        {{ ds.row_names[commonProps.selectedFactor] }}
     </v-col>
     </v-row>
   </v-card-text>
@@ -59,10 +59,10 @@ export default {
   data() {
     return {
       commonProps: {
-        clickedVar: "",
-        clickedPC: "",
-        selected: "",
-        selectedPC: "",
+        clickedVar: null,
+        clickedFactor: null,
+        selectedVar: null,
+        selectedFactor: null,
         searchText: "",
         thres: 1
       },
@@ -91,16 +91,16 @@ export default {
       deep: true
     },
     selection: {
-      handler(val){
-        this.commonProps.selected = val.selected;
-        this.commonProps.selectedPC = val.selectedPC;
+      handler(selection){
+        this.commonProps.selectedVar = selection.var;
+        this.commonProps.selectedFactor = selection.factor;
       },
       deep: true
     },
     clicked: {
-      handler(val){
-        this.commonProps.clickedVar = val.clickedVar;
-        this.commonProps.clickedPC = val.clickedPC;
+      handler(clicked){
+        this.commonProps.clickedVar = clicked.var;
+        this.commonProps.clickedFactor = clicked.factor;
       },
       deep: true
     },

@@ -98,8 +98,6 @@ export default {
         link_opacity: 0.6,
         link_color: false,
         displayHull: true,
-        selected: "",
-        selectedPC: "",
         attractiveForce: 10,
         repulsiveForce: 30,
       },

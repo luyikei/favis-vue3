@@ -56,5 +56,9 @@ export class Data {
   static abs(data) {
     return new Data(math.abs(data.rawmat), data.names, data.row_names, data.codebook);
   }
+
+  static transpose(data) {
+    return new Data(math.transpose(data.rawmat), data.row_names, data.names, data.codebook);
+  }
 }
 

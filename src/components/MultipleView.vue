@@ -7,7 +7,7 @@
     </v-col>
       <v-divider vertical></v-divider>
     <v-col md="5">
-      <Heatmap :ds="ds" :heatmapProps="heatmapProps" :commonProps="commonProps" :showControls="false"></Heatmap>
+      <Heatmap :ds="ds" :heatmapProps="heatmapProps" :commonProps="commonProps" :showControls="false" @clicked="clickedChanged"></Heatmap>
     </v-col>
       <v-divider vertical></v-divider>
     <v-col md="2" class="scrollable">
