@@ -7,6 +7,7 @@
     </g>
   </svg>
   <div ref="legend" class="legenddiv pa-3"></div>
+  <div ref="tooltip"></div>
 </template>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
@@ -37,7 +38,8 @@
 
 <script>
 import * as d3 from "d3";
-import {Legend, Swatches} from "@/objs/d3colorlegend.js"
+import {faviscolorscheme, faviscolorscale, Swatches} from "@/objs/d3colorlegend.js"
+import {Tooltip} from '@/objs/d3tooltip.js';
 
 export default {
   props: ["ds", "showControls", "networkProps", "commonProps"],
@@ -59,16 +61,18 @@ export default {
         selected: "",
         selectedPC: ""
       },
-      color: d3.scaleOrdinal([
-        "#f28e2c",
-        "#76b7b2",
-        "#59a14f",
-        "#edc949",
-        "#af7aa1",
-        "#ff9da7",
-        "#9c755f",
-        "#bab0ab"
-      ]),
+      clicked: {
+        clickedVarI: -1,
+        clickedVar: "",
+        clickedPC: ""
+      },
+      attractiveForce: 10,
+      repulsiveForce: 30,
+      color: d3.scaleOrdinal(faviscolorscheme),
+      cScale: faviscolorscale,
+
+      tooltip: null,
+
       simulation: d3
         .forceSimulation()
         .force(
@@ -94,50 +98,64 @@ export default {
             .selectAll("circle")
             .attr("cx", (d) => d.x)
             .attr("cy", (d) => d.y);
-            if (this.displayHull) {
-              let dat = nodes.selectAll("circle").data();
-              let maxg = Math.max(...dat.map(v => v.group));
-              let points =  Array.from({length: maxg + 1}, () => []);
-              for (let i = 0; i < dat.length; i++) {
-                const point = dat[i];
-                point.groups.forEach(num => {
-                  points[num].push([point.x, point.y]);
-                });
+          if (this.displayHull) {
+            let dat = nodes.selectAll("circle").data();
+            let domain = this.color.domain();
+            let points = {};
+            domain.forEach((num) => points[num] = []);
+            for (let i = 0; i < dat.length; i++) {
+              const point = dat[i];
+              point.groups.forEach(num => {
+                points[num].push([point.x, point.y]);
+              });
+            }
+            points = Object.values(points);
+            let pol = points.map(v => d3.polygonHull(v));
+            for (let i = 0; i < pol.length; i++) {
+              if (pol[i]) {
+                pol[i]["factor"] = domain[i];
+                pol[i]["name"] = (domain[i] ? this.ds.row_names[domain[i] - 1] : "None");
               }
-              let pol = points.map(v => d3.polygonHull(v));
-              pol = pol.map( v => v ? {data: v} : {data: []});
-              for (let i = 0; i < pol.length; i++) {
-                pol[i]["name"] = (i ? this.ds.row_names[i - 1] : "None");
-              }
-              let hulls = hull.selectAll("path").data(pol);
-              hulls
-                .enter()
-                .append("path")
-                .attr("d", function(d) {
-                  if (d.data.length) {
-                    return "M" + d.data.join("L") + "Z"; 
-                  } else {
-                    return null;
-                  }})
-                .attr("fill", (d,i) => this.color(i))
-                .attr("stroke", (d,i) => this.color(i))
-                .attr("stroke-width", "2px")
-                .attr("stroke-linejoin", "round")
-                .attr("stroke-opacity", 0.3)
-                .attr("opacity", 0.3)
-                .on("mouseover", (_, d) => {
-                  this.selection.selectedPC = d["name"];
-                  this.$emit('selectionChanged', this.selection);
+            }
+            pol = pol.filter(v => v && v.length > 2);
+            let hulls = hull.selectAll("path").data(pol);
+            hulls
+              .enter()
+              .append("path")
+              .attr("d", function(d) {
+                if (d.length) {
+                  return "M" + d.join("L") + "Z"; 
+                } else {
+                  return null;
+                }})
+              .attr("fill", (d,i) => this.color(d["factor"]))
+              .attr("stroke", (d,i) => this.color(d["factor"]))
+              .attr("stroke-width", "2px")
+              .attr("stroke-linejoin", "round")
+              .attr("stroke-opacity", 0.3)
+              .attr("opacity", 0.3)
+              .on("mouseover", (event, d) => {
+                this.selection.selectedPC = d["name"];
+                this.$emit('selectionChanged', this.selection);
+                this.tooltip.mouseover(event)
+              })
+              .on("mousemove", (event, d) =>{
+                this.tooltip.mousemove(event, {
+                  variable: "",
+                  factor: d["name"]})
                 })
-                ;
-              hulls
-                .attr("d", function(d) {
-                  if (d.data.length) {
-                    return "M" + d.data.join("L") + "Z"; 
-                  } else {
-                    return null;
-                  }});
-              hulls.exit().remove();
+              .on("mouseleave", (event) => this.tooltip.mouseleave(event))
+              ;
+            hulls
+              .attr("d", function(d) {
+                if (d.length) {
+                  return "M" + d.join("L") + "Z"; 
+                } else {
+                  return null;
+                }})
+              .attr("fill", (d,i) => this.color(d["factor"]))
+              .attr("stroke", (d,i) => this.color(d["factor"]));
+            hulls.exit().remove();
           } else {
               let hulls = hull.selectAll("path").data([]);
               hulls.exit().remove();
@@ -161,6 +179,25 @@ export default {
     ds: function () {
       this.updateGraph();
     },
+    attractiveForce: function () {
+      this.simulation.stop();
+      let forceLink = this.simulation.force("link");
+      if(!this.origStrength) this.origStrength = forceLink.strength();
+      forceLink.strength((link) => this.attractiveForce / 10 * this.origStrength(link));
+      this.simulation.alpha(1).restart();
+    },
+    repulsiveForce: function () {
+      this.simulation.stop();
+      let forceNode = this.simulation.force("charge");
+      forceNode.strength(-this.repulsiveForce);
+      this.simulation.alpha(1).restart();
+    },
+    clicked:  {
+      handler(clicked){
+        this.updateGraph();
+      },
+      deep: true
+    },
     networkProps:  {
       handler(networkProps){
         this.scale = networkProps.scale;
@@ -170,6 +207,8 @@ export default {
         this.displayHull = networkProps.displayHull;
         this.selection.selected = networkProps.selected;
         this.selection.selectedPC = networkProps.selectedPC;
+        this.attractiveForce = networkProps.attractiveForce;
+        this.repulsiveForce = networkProps.repulsiveForce;
       },
       deep: true
     },
@@ -183,10 +222,11 @@ export default {
     }
   },
   computed: {
-    svgViewBox() { return `${this.x + (this.svgWidth - this.svgWidth/this.scale) / 2},
-    ${this.y + (this.svgWidth - this.svgWidth/this.scale) / 2}, 
-    ${this.svgWidth/this.scale}, 
-    ${this.svgHeight/this.scale}` },
+    svgViewBox() {
+      return `${this.x + (this.svgWidth - this.svgWidth/this.scale) / 2},
+      ${this.y + (this.svgWidth - this.svgWidth/this.scale) / 2}, 
+      ${this.svgWidth/this.scale}, 
+      ${this.svgHeight/this.scale}` },
     
     svgWidth() {
       return this.width + this.margin.left + this.margin.right;
@@ -199,8 +239,6 @@ export default {
     },
   },
   methods: {
-    resizeHandler() {
-    },
     networkPropsUpdated(networkProps) {
         this.scale = networkProps.scale;
         this.thres = networkProps.thres;
@@ -216,11 +254,14 @@ export default {
       let graph = {};
       graph["nodes"] = [];
       graph["links"] = [];
-      this.ds.names.forEach((element) => {
+      this.ds.names.forEach((element, i) => {
         graph["nodes"].push({
+          i: i,
           id: element,
+          linked: new Set(),
           groups: new Set(),
           group: 0,
+          loading: 0,
         });
       });
 
@@ -229,20 +270,29 @@ export default {
       let lnks = Array(this.ds.names.length).fill(0).map(() => Array(this.ds.names.length).fill(0));
       for (let i = 0; i < this.ds.matrix.length; i++) {
         for (let j = 0; j < this.ds.matrix[i].length - 1; j++) {
-          const element1 = this.ds.matrix[i][j].z;
-          if (Math.abs(element1) <= this.thres) continue;
+          const element1 = Math.abs(this.ds.matrix[i][j].z);
+          if (element1 <= this.thres) continue;
           for (let k = j + 1; k < this.ds.matrix[i].length; k++) {
-            const element2 = this.ds.matrix[i][k].z;
+            const element2 = Math.abs(this.ds.matrix[i][k].z);
             if (
               !lnks[j][k]  &&
-              Math.abs(element2) > this.thres
+              element2 > this.thres
               ) {
                 lnks[j][k] = i + 1;
-                graph["nodes"][j]["group"] = i + 1;
-                graph["nodes"][k]["group"] = i + 1;
-                graph["nodes"][j]["groups"].add(i + 1);
-                graph["nodes"][k]["groups"].add(i + 1);
-                graph["links"].push({
+                lnks[k][j] = i + 1;
+                graph.nodes[j].groups.add(i + 1);
+                graph.nodes[j].linked.add(this.ds.names[k]);
+                graph.nodes[k].groups.add(i + 1);
+                graph.nodes[k].linked.add(this.ds.names[j]);
+                if (graph.nodes[j].loading < element1) {
+                  graph.nodes[j].loading = element1;
+                  graph.nodes[j].group = i + 1;
+                }
+                if (graph.nodes[k].loading < element2) {
+                  graph.nodes[k].loading = element2;
+                  graph.nodes[k].group = i + 1;
+                }
+                graph.links.push({
                   source: this.ds.names[j],
                   target: this.ds.names[k],
                   value: 1,
@@ -263,29 +313,26 @@ export default {
       }
       this.$refs.legend.innerHTML = "";
       this.$refs.legend.appendChild(
-        Swatches(this.color, 
-        {columns: "180px", domainlables: domainlables}));
-        
-      console.log(domainlables);
-      console.log(groups);
+        Swatches(this.color, {columns: "180px", domainlables: domainlables}));
 
       let links = d3.select(this.$refs.links);
       let nodes = d3.select(this.$refs.nodes);
       let svg = d3.select(this.$refs.svg);
 
       svg
-          .attr("pointer-events", "all").call(d3
-          .drag()
-          .on("start", () => {
-            svg.style("cursor", "grabbing");
-          })
-          .on("drag", (event) => {
-            this.x -= event.dx/this.scale;
-            this.y -= event.dy/this.scale;
-          })
-          .on("end", function() {
-            svg.style("cursor", null);
-          }));
+        .on("click", () => this.clicked = {})
+        .attr("pointer-events", "all").call(d3
+        .drag()
+        .on("start", () => {
+          svg.style("cursor", "grabbing");
+        })
+        .on("drag", (event) => {
+          this.x -= event.dx/this.scale;
+          this.y -= event.dy/this.scale;
+        })
+        .on("end", function() {
+          svg.style("cursor", null);
+        }));
 
       const old = new Map(
         nodes
@@ -299,75 +346,89 @@ export default {
       graph.links = graph.links.map((d) => Object.assign({}, d));
 
       let node = nodes.selectAll("circle").data(graph.nodes, (d) => d.id);
+      let nodestyle = node => {
+        node
+          .attr("r", d => this.clicked.clickedVar && this.clicked.clickedVar == d.id ? 7 : 5)
+          .attr("stroke", (d) => {
+            return this.clicked.clickedVar && (this.clicked.clickedVar == d.id || lnks[this.clicked.clickedVarI][d.i]) ? "black" : "transparent";
+          })
+          .attr("stroke-opacity", 1)
+          .attr("opacity", (d) => {
+            if (this.clicked.clickedVar && (this.clicked.clickedVar == d.id || lnks[this.clicked.clickedVarI][d.i])) return 1;
+            if (d.group == 0) return this.opacityisolated;
+            if (this.clicked.clickedVar) return 0.5;
+            return 1;
+          })
+          .attr("fill",  (d) =>  this.color(d.group) );
+        return node;
+      };
+      
       node
         .enter()
         .append("circle")
-        .attr("r", 5)
-        .attr("opacity", (d) => d.group == 0 ? this.opacityisolated : 1)
-        .attr("fill",  (d) => {
-          return this.color(d.group);
-        })
+        .call(nodestyle)
         .on("click", (e, d) => {
-          let id = d.id;
-          nodes.selectAll("circle").attr("stroke", "transparent");
-          d3.select(e.target)
-            .attr("stroke", "#000")
-            .attr("stroke-opacity", this.link_opacity);
-          links
-            .selectAll("line")
-            .attr("stroke", this.link_color ? d => this.color(d.group) : "#999")
-            .each(function (d) {
-              if (d.source.id === id || d.target.id === id) {
-                d3.select(this)
-                  .attr("stroke", "#000")
-                  .attr("stroke-opacity", 1);
-              }
-            });
-          this.$emit('clicked', {
-            clickedVar: id,
+          this.clicked = {
+            clickedVarI: d.i,
+            clickedVar: d.id,
             clickedPC: ""
-          });
+          };
+          this.$emit('clicked', this.clicked);
+          e.stopPropagation();
         })
-        .on("mouseover", (_, d) => {
+        .on("mouseover", (event, d) => {
           this.selection.selected = d.id;
           this.$emit('selectionChanged', this.selection);
+          this.tooltip.mouseover(event)
         })
-        .call(drag(this.simulation))
-        .append("title")
-        .text(function (d) {
-          return d.id;
-        });
+        .on("mousemove", (event, d) =>{
+          this.tooltip.mousemove(event, {
+            variable: d.id,
+            factor: Array.from(d.groups).map(x=>this.ds.row_names[x-1]).join(', '),
+            codebook: this.ds.codebook[d.id]
+          })
+        })
+        .on("mouseleave", (event) => this.tooltip.mouseleave(event))
+        .call(drag(this.simulation));
       node
-        .attr("opacity", (d) => d.group == 0 ? this.opacityisolated : 1)
-        .attr("fill", (d) => {
-          return this.color(d.group);
-        })
+        .call(nodestyle)
         .call(drag(this.simulation));
       node.exit().remove();
+
+      let linkstyle = link => {
+        link
+          .attr("stroke", this.link_color ? d => this.color(d.group) : "#999")
+          .attr("stroke-opacity", d => {
+            if (this.clicked.clickedVar && d.source != this.clicked.clickedVar && d.target != this.clicked.clickedVar)
+              return Math.min(0.1, this.link_opacity);
+            if (this.clicked.clickedVar)
+              return 1
+            return this.link_opacity;
+          })
+          .attr("stroke-width", (d) => Math.sqrt(d.value));
+        return link;
+      };
 
       let link = links.selectAll("line").data(graph.links);
       link
         .enter()
         .append("line")
-        .attr("stroke", this.link_color ? d => this.color(d.group) : "#999")
-        .attr("stroke-opacity", this.link_opacity)
-        .attr("stroke-width", function (d) {
-          return Math.sqrt(d.value);
-        })
-        .on("mouseover", (_, d) => {
+        .call(linkstyle)
+        .on("mouseover", (event, d) => {
           this.selection.selectedPC = this.ds.row_names[d.group-1];
           this.$emit('selectionChanged', this.selection);
-        });
+          this.tooltip.mouseover(event);
+        })
+        .on("mousemove", (event, d) => this.tooltip.mousemove(event, {
+            variable: `${d.source.id} ${d.target.id}`,
+            factor: this.ds.row_names[d.group-1]
+        }))
+        .on("mouseleave", (event) => this.tooltip.mouseleave(event));
       link
-        .attr("stroke", this.link_color ? d => this.color(d.group) : "#999")
-        .attr("stroke-opacity", this.link_opacity)
-        .attr("stroke-width", function (d) {
-          return Math.sqrt(d.value);
-        });
+        .call(linkstyle);
       link.exit().remove();
 
       this.simulation.nodes(graph.nodes);
-
       this.simulation.force("link").links(graph.links);
       this.simulation.alpha(1).restart();
 
@@ -397,13 +458,8 @@ export default {
       }
     },
   },
-  created() {
-    window.addEventListener("resize", this.resizeHandler);
-  },
-  destroyed() {
-    window.addEventListener("resize", this.resizeHandler);
-  },
   mounted() {
+    this.tooltip = new Tooltip(this.$refs.tooltip);
     // this.updateGraph(); Through updated in CommonControls
   },
 };

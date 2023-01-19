@@ -36,6 +36,10 @@
     label="Threshold"
   ></v-checkbox>
   <v-checkbox
+    v-model="heatmapProps.tocolorfactor"
+    label="Factor Color"
+  ></v-checkbox>
+  <v-checkbox
     v-model="heatmapProps.sortOnClick"
     label="Sort on Click"
   ></v-checkbox>
@@ -61,6 +65,7 @@ export default {
         scale: 1,
         isAbs: false,
         isT: false,
+        tocolorfactor: false,
         isThresholded: true,
         sortOnClick: true,
         searchText: "",

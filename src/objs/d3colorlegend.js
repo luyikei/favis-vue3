@@ -6,6 +6,19 @@
 import * as d3 from "d3";
 import * as htl from "htl";
 
+export let faviscolorscale = d3.scaleSequential().domain([-1, 1]).interpolator(d3.interpolateRdBu);
+
+export let faviscolorscheme = [
+  "#f28e2c",
+  "#76b7b2",
+  "#59a14f",
+  "#edc949",
+  "#af7aa1",
+  "#ff9da7",
+  "#9c755f",
+  "#bab0ab"
+];
+
 export class Legend {
   constructor(color, {
     title,
@@ -168,7 +181,7 @@ export class Legend {
           .attr("x2", 0)
           .attr("y2", 5)
           .style("stroke-width", 2)
-          .style("stroke", "#E1D7C6")
+          .style("stroke", "#E4C988")
           .style("fill", "none");
       this.thresline.ph = 
         this.g.append("line")
@@ -177,7 +190,7 @@ export class Legend {
           .attr("x2", 0)
           .attr("y2", 3)
           .style("stroke-width", 1)
-          .style("stroke", "#E1D7C6")
+          .style("stroke", "#E4C988")
           .style("fill", "none");
       this.thresline.n = 
         this.g.append("line")
@@ -186,7 +199,7 @@ export class Legend {
           .attr("x2", 0)
           .attr("y2", 5)
           .style("stroke-width", 2)
-          .style("stroke", "#E1D7C6")
+          .style("stroke", "#E4C988")
           .style("fill", "none");
       this.thresline.nh = 
         this.g.append("line")
@@ -195,7 +208,7 @@ export class Legend {
           .attr("x2", 0)
           .attr("y2", 3)
           .style("stroke-width", 1)
-          .style("stroke", "#E1D7C6")
+          .style("stroke", "#E4C988")
           .style("fill", "none");
     }
     

@@ -16,7 +16,7 @@ export class Data {
   rawmat;
   orders;
   rorders;
-  constructor(rawmat, names, row_names) {
+  constructor(rawmat, names, row_names, codebook) {
     let matrix = [];
     let n = rawmat.length;
     let m = names.length;
@@ -50,10 +50,11 @@ export class Data {
     else {
       this.row_names = range(n).map(x => `F${x+1}`)
     }
+    this.codebook = codebook;
   }
 
   static abs(data) {
-    return new Data(math.abs(data.rawmat), data.names, data.row_names);
+    return new Data(math.abs(data.rawmat), data.names, data.row_names, data.codebook);
   }
 }
 

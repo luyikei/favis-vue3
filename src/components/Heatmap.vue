@@ -6,17 +6,19 @@
     </g>
   </svg>
   <div ref="legend" class="legenddiv pa-3"></div>
+  <div ref="tooltip"></div>
 </template>
 <script>
 
 import * as d3 from "d3";
-import {Legend, Swatches} from "@/objs/d3colorlegend.js"
+import {Legend, faviscolorscheme, faviscolorscale} from "@/objs/d3colorlegend.js"
 import { create, all } from 'mathjs'
 
 const config = { }
 const math = create(all, config)
 
 import {CSVData} from '@/objs/CSVData.js';
+import {Tooltip} from '@/objs/d3tooltip.js';
 
 export default {
   props: ["ds", "heatmapProps", "commonProps", "showControls"],
@@ -45,10 +47,14 @@ export default {
       sortOnClick: true,
       resetSortingCount: 0,
 
+      factorcolor: d3.scaleOrdinal(faviscolorscheme),
+      tocolorfactor: false,
+
       selection: {
         selected: "",
         selectedPC: ""
       },
+      clickedVar: "",
 
       // Current Column and Row Order, matrix
       order: [],
@@ -60,10 +66,11 @@ export default {
       searchText: "",
 
       legend: null,
+      tooltip: null,
 
       xScale: d3.scaleBand(),
       yScale: d3.scaleBand(),
-      cScale: d3.scaleSequential().domain([-1, 1]).interpolator(d3.interpolateRdBu),
+      cScale: faviscolorscale,
     }
   },
   watch: {
@@ -71,6 +78,9 @@ export default {
       this.cds = this.ds;
       this.absDS = new CSVData(this.ds.csvData, true);
       this.updateGraph();
+    },
+    tocolorfactor: function() {
+      this.reset();
     },
     isAbs: function() {
       this.reset();
@@ -98,6 +108,11 @@ export default {
       this.filterd(this.searchText);
       this.updateGraph();
     },
+    clickedVar() {
+      let svg = d3.select(this.$refs.svgfield);
+      svg.selectAll(".matcolumn").call(g => g.selectAll("rect")
+                    .style("stroke", d => this.cds.names[d] == this.clickedVar ? "red" : "transparent"));
+    },
     heatmapProps:  {
       handler(heatmapProps){
         this.resetSortingCount = heatmapProps.resetSorting;
@@ -106,6 +121,7 @@ export default {
         this.isT = heatmapProps.isT;
         this.isThresholded = heatmapProps.isThresholded;
         this.sortOnClick = heatmapProps.sortOnClick;
+        this.tocolorfactor = heatmapProps.tocolorfactor;
 
         if (this.legend) this.legend.threshold(this.isThresholded ? this.thres : -1);
         
@@ -120,6 +136,7 @@ export default {
         this.selection.selectedPC = commonProps.selectedPC;
         this.searchText = commonProps.searchText;
         this.thres = commonProps.thres;
+        this.clickedVar = commonProps.clickedVar;
 
         if (this.legend) this.legend.threshold(this.isThresholded ? this.thres : -1);
         
@@ -128,12 +145,12 @@ export default {
         svg.selectAll(".matcolumn").selectAll("text")
                           .style('fill', (d, i) =>
                             (!this.isT && this.cds.names[d] == this.selection.selected) ||
-                            (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  'black'
+                            (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  (this.isT && this.tocolorfactor ? this.factorcolor(d+1) : 'black')
                           );
         svg.selectAll(".matrow")
                           .style('fill', (d, i) =>
                             (!this.isT && this.cds.row_names[i] == this.selection.selectedPC) ||
-                            (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  'black'
+                            (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
                           );
 
         svg.selectAll(".cell").style("fill", d => this.thres <= Math.abs(d.z) || !this.isThresholded ? this.cScale(d.z) : this.cScale(0))
@@ -203,18 +220,22 @@ export default {
       this.yScale.range([0, this.size * this.rorder.length]).domain(this.rorder);
       
       d3.select(this.$refs.svg)
-          .attr("pointer-events", "all").call(d3
-          .drag()
-          .on("start", () => {
-            d3.select(that.$refs.svg).style("cursor", "grabbing");
+          .attr("pointer-events", "all")
+          .on("click", () => {
+            this.clickedVar = "";
           })
-          .on("drag", (event) => {
-            this.x -= event.dx/this.scale;
-            this.y -= event.dy/this.scale;
-          })
-          .on("end", function() {
-            d3.select(that.$refs.svg).style("cursor", null);
-          }));
+          .call(d3.drag()
+            .on("start", () => {
+              d3.select(that.$refs.svg).style("cursor", "grabbing");
+            })
+            .on("drag", (event) => {
+              this.x -= event.dx/this.scale;
+              this.y -= event.dy/this.scale;
+            })
+            .on("end", function() {
+              d3.select(that.$refs.svg).style("cursor", null);
+            })
+          );
 
       let createCells = function(row) {
         d3.select(this).selectAll(".cell")
@@ -224,9 +245,20 @@ export default {
             .attr("x", (d) => {
               return that.xScale(d.x);
             })
-            .attr("width", that.size-1)
-            .attr("height", that.size-1)
+            .attr("width", that.size-2)
+            .attr("height", that.size-2)
             .style("fill", d => that.thres <= Math.abs(d.z) || !that.isThresholded? that.cScale(d.z) : that.cScale(0))
+            .on("click", (e, d) =>{
+              that.clickedVar = that.cds.names[d.x];
+              e.stopPropagation();
+            })
+            .on("mouseover", (event) => that.tooltip.mouseover(event))
+            .on("mousemove", (event, d) => that.tooltip.mousemove(event, {
+              variable: that.ds.names[d.x],
+              factor: that.ds.row_names[d.y],
+              codebook: that.ds.codebook[that.ds.names[d.x]]
+            }))
+            .on("mouseleave", (event) => that.tooltip.mouseleave(event))
       }
 
       svg.selectAll(".matcolumn").data(this.order, d => d)
@@ -239,6 +271,13 @@ export default {
                         })
                     .call(g => g.append("line")
                       .attr("x1", -this.width))
+                    .call(g => g.append("rect")
+                      .attr("y", -1)
+                      .attr("x", -this.size * this.rorder.length+1)
+                      .attr("width", this.size * this.rorder.length)
+                      .attr("stroke-width", 1)
+                      .style("stroke", d => this.cds.names[d] == this.clickedVar ? "red" : "transparent")
+                      .attr("height", this.size).style("fill", "transparent"))
                     .call(g => g.append("text")
                       .attr("x", 6)
                       .attr("y", this.size / 2)
@@ -248,20 +287,23 @@ export default {
                       .text((d) => this.cds.names[d]))
                       .style('fill', (d, i) =>
                             (!this.isT && this.cds.names[d] == this.selection.selected) ||
-                            (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  'black'
+                            (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  (this.isT && this.tocolorfactor ? this.factorcolor(d+1) : 'black')
                           )
-                      .on("click", (_, d) => {
+                      .on("click", (e, d) => {
                         if (this.sortOnClick)
                             this.rorder_i = parseInt(d + 1);
+                        e.stopPropagation();
                       }),
           update => update
                       .attr("transform", (d) => "translate(" + this.xScale(d) + ")rotate(-90)")
+                      .call(g => g.append("rect")
+                        .style("stroke", d => this.cds.names[d] == this.clickedVar ? "red" : "transparent"))
                       .call(g => g.selectAll("text")
                         .attr("y", this.size / 2)
                         .attr("font-size", this.size)
                         .style('fill', (d, i) =>
                               (!this.isT && this.cds.names[d] == this.selection.selected) ||
-                              (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  'black'
+                              (this.isT && this.cds.names[d] == this.selection.selectedPC) ? 'red' :  (this.isT && this.tocolorfactor ? this.factorcolor(d+1) : 'black')
                             )
                         .text((d) => this.cds.names[d])),
 
@@ -275,7 +317,7 @@ export default {
                 .attr("transform", (d, i) => "translate(0," + this.yScale(i) + ")")
                 .style('fill', (d, i) =>
                   (!this.isT && this.cds.row_names[i] == this.selection.selectedPC) ||
-                  (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  'black'
+                  (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
                 )
                 .call(g => g.append("line")
                   .attr("x2", this.width))
@@ -286,7 +328,7 @@ export default {
                   .attr("dy", ".32em")
                   .attr("text-anchor", "end")
                   .text((d, i) => this.cds.row_names[i])
-                  .on("click", (_, d) => {
+                  .on("click", (e, d) => {
                     if (this.sortOnClick)
                       this.order_i = parseInt(d[0].y + 1);
                   }))
@@ -295,7 +337,7 @@ export default {
                           .attr("transform", (d, i) => "translate(0," + this.yScale(i) + ")")
                           .style('fill', (d, i) =>
                             (!this.isT && this.cds.row_names[i] == this.selection.selectedPC) ||
-                            (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  'black'
+                            (this.isT && this.cds.row_names[i] == this.selection.selected) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
                           )
                           .call(g => g.selectAll("text")
                             .attr("y", this.size / 2)
@@ -313,6 +355,8 @@ export default {
     this.order = this.ds.orders[0];
     this.rorder = this.ds.rorders[0];
     this.matrix = this.ds.matrix;
+    this.tooltip = new Tooltip(this.$refs.tooltip);
+    this.factorcolor.domain(d3.range(this.ds.row_names.length));
     this.updateGraph();
     this.legend = new Legend(this.cScale, {
       width: 160,

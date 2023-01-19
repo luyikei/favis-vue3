@@ -15,6 +15,30 @@
         >
       </v-slider>
       <v-slider
+        v-model.number="networkProps.attractiveForce"
+        min="1"
+        max="10"
+        step="0.1"
+        label="Attractive Force"
+        :thumb-size="12"
+        thumb-label
+        hide-details="auto"
+        class="pb-5"
+        >
+      </v-slider>
+      <v-slider
+        v-model.number="networkProps.repulsiveForce"
+        min="0"
+        max="100"
+        step="0.1"
+        label="Repulsive Force"
+        :thumb-size="12"
+        thumb-label
+        hide-details="auto"
+        class="pb-5"
+        >
+      </v-slider>
+      <v-slider
         v-model.number="networkProps.link_opacity"
         label="Link Opacity"
         min="0.0"
@@ -31,7 +55,7 @@
         min="0"
         max="1"
         step="0.01"
-        label="Opacity for IN"
+        label="Sole Node Op"
         :thumb-size="12"
         thumb-label
         hide-details="auto"
@@ -76,6 +100,8 @@ export default {
         displayHull: true,
         selected: "",
         selectedPC: "",
+        attractiveForce: 10,
+        repulsiveForce: 30,
       },
       }
   },

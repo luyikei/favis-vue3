@@ -101,7 +101,6 @@ export default {
       handler(val){
         this.commonProps.clickedVar = val.clickedVar;
         this.commonProps.clickedPC = val.clickedPC;
-        console.log(this.commonProps);
       },
       deep: true
     },

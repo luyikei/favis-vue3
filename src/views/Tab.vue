@@ -84,6 +84,10 @@ export default {
       //this.$store.commit('appendTab', Tab.Types.NETWORK);
       //this.$store.commit('appendTab', Tab.Types.HEATMAP);
       this.$store.commit('appendTab', Tab.Types.MULTIPLE);
+      this.$store.commit('addDS', BFI);
+      //this.$store.commit('appendTab', Tab.Types.NETWORK);
+      //this.$store.commit('appendTab', Tab.Types.HEATMAP);
+      this.$store.commit('appendTab', Tab.Types.MULTIPLE);
       console.log("TAB: mounted");
     },
     watch: {
