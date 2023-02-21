@@ -1,5 +1,5 @@
 <template>
-  <svg ref="svg" width="100%" height="100%" :viewBox="svgViewBox" >
+  <svg ref="svg" width="100%" height="100%">
     <g ref="svgfield" :transform="svgGOffeset">
       <g ref="xaxis"></g>
       <g ref="yaxis"></g>
@@ -21,17 +21,19 @@ import {CSVData} from '@/objs/CSVData.js';
 import {Tooltip} from '@/objs/d3tooltip.js';
 
 export default {
-  props: ["ds", "heatmapProps", "commonProps", "showControls"],
+  props: ["ds", "heatmapProps", "commonProps"],
   emits: ['clicked', 'selectionChanged'],
   data() {
     return {
-      margin: {top: 0, right: 20, bottom: 40, left: 70},
+      margin: {top: 150, right: 20, bottom: 40, left: 70},
       height: 300,
       width: 800,
 
       size: 20,
-      x: 0,
-      y: 0,
+      pos: {
+        x: 0,
+        y: 0
+      },
       scale: 1,
       // codebook: {},
 
@@ -57,7 +59,8 @@ export default {
       },
       clicked: {
         var: null,
-        factor: null
+        factor: null,
+        sort: null
       },
 
       // Current Column and Row Order, matrix
@@ -100,30 +103,41 @@ export default {
     },
     order_i: function (v) {
       this.order = this.cds.orders[v];
+      //this.rorder = this.cds.rsimorders[v];
       this.filterd(this.searchText);
       this.updateGraph();
     },
     rorder_i: function (v) {
       this.rorder = this.cds.rorders[v];
+      //this.order = this.cds.simorders[v];
       this.filterd(this.searchText);
       this.updateGraph();
     },
     searchText: function() {
+      this.order = this.cds.orders[this.order_i];
       this.filterd(this.searchText);
       this.updateGraph();
     },
-    clicked:  {
-      handler(clicked){
+    clicked: {
+      handler(clicked) {
+        if (this.clicked.sort && typeof this.clicked.var == "number") {
+          if (!this.isT) this.rorder_i = this.clicked.var + 1;
+          else this.order_i = this.clicked.var + 1;
+        };
+        if (this.clicked.sort && typeof this.clicked.factor == "number") {
+          if (!this.isT) this.order_i = this.clicked.factor + 1;
+          else this.rorder_i = this.clicked.factor + 1;
+        };
         let svg = d3.select(this.$refs.svgfield);
         svg.selectAll(".matcolumn").call(g => g.selectAll("rect")
                       .style("stroke", d => d == this.clicked.var && !this.isT ? "red" : "transparent"));
         svg.selectAll(".matrow").call(g => g.selectAll(".highlight")
-                      .style("stroke", (d,i) => d[0].y == this.clicked.var && this.isT ? "red" : "transparent"));
+                      .style("stroke", (d,i) => d.length && (d[0].y  == this.clicked.var && this.isT || d[0].y  == this.clicked.factor && !this.isT) ? "red" : "transparent"));
       },
       deep: true
     },
     heatmapProps:  {
-      handler(heatmapProps){
+      handler(heatmapProps) {
         this.resetSortingCount = heatmapProps.resetSorting;
         this.scale = heatmapProps.scale;
         this.isAbs = heatmapProps.isAbs;
@@ -140,11 +154,14 @@ export default {
       deep: true
     },
     commonProps: {
-      handler(commonProps){
+      handler(commonProps) {
         this.selection.var = commonProps.selectedVar;
         this.selection.factor = commonProps.selectedFactor;
-        this.clicked.var = commonProps.clickedVar;
-        this.clicked.factor = commonProps.clickedFactor;
+        this.clicked = {
+          var: commonProps.clickedVar,
+          factor: commonProps.clickedFactor,
+          sort: commonProps.clickedSort,
+        };
         this.searchText = commonProps.searchText;
         this.thres = commonProps.thres;
 
@@ -169,10 +186,12 @@ export default {
     }
   },
   computed: {
-    svgViewBox() { return `${this.x}, ${this.y}, ${this.svgWidth/this.scale}, ${this.svgHeight/this.scale}` },
+    svgViewBox() { 
+      return `${this.pos.x}, ${this.pos.y}, ${this.svgWidth/this.scale}, ${this.svgHeight/this.scale}` 
+    },
     svgWidth() { return this.width + this.margin.left + this.margin.right },
     svgHeight() { return this.height + this.margin.top + this.margin.right },
-    svgGOffeset() { return "translate(" + this.margin.left + "," + this.margin.top + ")" }
+    svgGOffeset() { return `scale(${this.scale}) translate(${-this.pos.x+this.margin.left/this.scale}, ${-this.pos.y+this.margin.top/this.scale})` }
   },
   methods: {
     reset() {
@@ -184,12 +203,6 @@ export default {
       this.order = this.cds.orders[0];
       this.rorder = this.cds.rorders[0];
       this.matrix = this.cds.matrix;
-      for (let i = 0; i < this.matrix.length; ++i) {
-        for (let j = 0; j < this.matrix[i].length; ++j) {
-          this.matrix[i][j].y = i;
-          this.matrix[i][j].x = j;
-        }      
-      }
       this.order_i = 0;
       this.rorder_i = 0;
       this.updateGraph();
@@ -202,10 +215,10 @@ export default {
     
     filterd(val) {
       if (val) {
-        this.order = this.cds.orders[this.order_i].filter(d => this.cds.names[d].startsWith(val));
+        this.order = this.order.filter(d => this.cds.names[d].startsWith(val));
         this.matrix = this.cds.matrix.map(row => (val ? row.filter(d => this.cds.names[d.x].startsWith(val)): row) );
       } else {
-        this.order = this.cds.orders[this.order_i];
+        this.order = this.order;
         this.matrix = this.cds.matrix;
       }
     },
@@ -214,26 +227,30 @@ export default {
       console.log("HEATMAP: updateGraph");
       let svg = d3.select(this.$refs.svgfield);
       let that = this;
-
       this.xScale.range([0, this.size * this.order.length]).domain(this.order);
       this.yScale.range([0, this.size * this.rorder.length]).domain(this.rorder);
       
       d3.select(this.$refs.svg)
           .attr("pointer-events", "all")
           .on("click", () => {
-            this.clicked.var = null;
-            this.clicked.factor = null;
+            this.clicked = {
+              var: null,
+              factor: null,
+            };
+            this.$emit("clicked", this.clicked);
           })
           .call(d3.drag()
-            .on("start", () => {
-              d3.select(that.$refs.svg).style("cursor", "grabbing");
+            .on("start", function() {
+              d3.select(this).style("cursor", "grabbing");
             })
             .on("drag", (event) => {
-              this.x -= event.dx/this.scale;
-              this.y -= event.dy/this.scale;
+              that.pos = {
+                x: that.pos.x - event.dx/that.scale,
+                y: that.pos.y - event.dy/that.scale
+              };
             })
             .on("end", function() {
-              d3.select(that.$refs.svg).style("cursor", null);
+              d3.select(this).style("cursor", null);
             })
           );
 
@@ -268,6 +285,20 @@ export default {
                       .on("click", (e, d) => {
                         if (this.sortOnClick)
                             this.rorder_i = parseInt(d + 1);
+                        if (!this.isT) {
+                          this.clicked = {
+                            var: d,
+                            factor: null,
+                            sort: true,
+                          };
+                        } else {
+                          this.clicked = {
+                            var: null,
+                            factor: d,
+                            sort: true,
+                          };
+                        }
+                        this.$emit("clicked", this.clicked);
                         e.stopPropagation();
                       }),
           update => update
@@ -286,7 +317,8 @@ export default {
           exit => exit.remove()
       );
 
-      let createCells = (row, rowElem) => {
+      let createCells = (row, i, nodes) => {
+        let rowElem = d3.select(nodes[i]);
         rowElem.selectAll(".cell")
             .data(row)
             .join("rect")
@@ -297,28 +329,17 @@ export default {
             .attr("width", this.size-2)
             .attr("height", this.size-2)
             .style("fill", d => this.thres <= Math.abs(d.z) || !this.isThresholded? this.cScale(d.z) : this.cScale(0))
-            .on("click", (e, d) =>{
-              if (!this.isT) {
-                this.clicked.var = d.x;
-                this.clicked.factor = d.y;
-              } else {
-                this.clicked.var = d.y;
-                this.clicked.factor = d.x;
-              }
-              this.$emit("clicked", this.clicked);
-              e.stopPropagation();
-            })
             .on("mouseover", (event) => this.tooltip.mouseover(event))
             .on("mousemove", (event, d) =>
             {
               this.tooltip.mousemove(event, {
                 var: !this.isT ? this.cds.names[d.x] : this.cds.row_names[d.y],
                 factor: !this.isT ? this.cds.row_names[d.y] : this.cds.names[d.x],
-                codebook: !this.isT ? this.cds.codebook[this.cds.names[d.x]] : this.cds.codebook[this.cds.row_names[d.y]]
+                codebook: this.cds.codebook ? (!this.isT ? this.cds.codebook[this.cds.names[d.x]] : this.cds.codebook[this.cds.row_names[d.y]]) : null
               });
             })
-            .on("mouseleave", (event) => this.tooltip.mouseleave(event))
-      }
+            .on("mouseleave", (event) => this.tooltip.mouseleave(event));
+      };
 
       svg.selectAll(".matrow")
         .data(this.matrix, d => d)
@@ -329,6 +350,23 @@ export default {
                   (!this.isT && i == this.selection.factor) ||
                   (this.isT && i == this.selection.var) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
                 )
+                .on("click", (e, d) =>{
+                  let [x, y] = d3.pointer(e);
+                  if (x < 0 || y < 0) return;
+                  if (!this.isT) {
+                    this.clicked = {
+                      var: this.order[Math.floor(x / this.size)],
+                      factor: d[0].y,
+                    };
+                  } else {
+                    this.clicked = {
+                      var: d[0].y,
+                      factor: Math.floor(x / this.size),
+                    };
+                  }
+                  this.$emit("clicked", this.clicked);
+                  e.stopPropagation();
+                })
                 .call(g => g.append("line")
                   .attr("x2", this.width))
                 .call(g => g.append("rect")
@@ -337,7 +375,7 @@ export default {
                   .attr("x", 0)
                   .attr("width", this.size * this.order.length)
                   .attr("stroke-width", 1)
-                  .style("stroke", (d,i) => d[0].y == this.clicked.var && this.isT ? "red" : "transparent")
+                  .style("stroke", (d,i) => d.length && ((this.isT && d[0].y == this.clicked.var) || (!this.isT && d[0].y == this.clicked.factor)) ? "red" : "transparent" )
                   .attr("height", this.size).style("fill", "transparent"))
                 .call(g => g.append("text")
                   .attr("x", -6)
@@ -346,11 +384,26 @@ export default {
                   .attr("dy", ".32em")
                   .attr("text-anchor", "end")
                   .text((d, i) => this.cds.row_names[i])
-                  .on("click", (e, d) => {
+                  .on("click", (e, d, i) => {
                     if (this.sortOnClick)
                       this.order_i = parseInt(d[0].y + 1);
+                    if (!this.isT) {
+                      this.clicked = {
+                        var: null,
+                        factor: d[0].y,
+                        sort: true,
+                      };
+                    } else {
+                      this.clicked = {
+                        var: d[0].y,
+                        factor: null,
+                        sort: true,
+                      };
+                    }
+                    this.$emit("clicked", this.clicked);
+                    e.stopPropagation();
                   }))
-                .each(function(v) {return createCells.bind(that)(v, d3.select(this))}),
+                .each(createCells),
               update => update
                           .attr("transform", (d, i) => "translate(0," + this.yScale(i) + ")")
                           .style('fill', (d, i) =>
@@ -358,11 +411,11 @@ export default {
                             (this.isT && i == this.selection.var) ? 'red' :  (!this.isT && this.tocolorfactor ? this.factorcolor(i+1) : 'black')
                           )
                           .call(g => g.selectAll(".highlight")
-                            .style("stroke", (d,i) => d[0].y == this.clicked.var && this.isT ? "red" : "transparent"))
+                            .style("stroke", (d,i) =>  d.length && ((this.isT && d[0].y == this.clicked.var) || (!this.isT && d[0].y == this.clicked.factor)) ? "red" : "transparent"))
                           .call(g => g.selectAll("text")
                             .attr("y", this.size / 2)
                             .attr("font-size", this.size))
-                            .each(function(v) {return createCells.bind(that)(v, d3.select(this))}),
+                            .each(createCells),
               exit => exit.remove());
     }
   },

@@ -15,14 +15,17 @@
 
     </v-tabs>
   </v-toolbar>
-    <v-window  v-model="curTab" class="flex-grow-1 flex-shrink-0 mt-1" ref="tabWindow">
+    <v-window  v-model="curTab" class="flex-grow-1 flex-shrink-0 mt-1" ref="tabWindow" style="height: 100%;">
       <v-window-item
         v-for="tab in tabs"
-        :key="tab.title"
+        :key="tab.title" style="height: 100%;"
       >
         <Network v-if="tab.type == 'network'" :ds="tab.data" :showControls="true"></Network>
         <Heatmap v-if="tab.type == 'heatmap'" :ds="tab.data" :showControls="true"></Heatmap>
         <MultipleView v-if="tab.type == 'multiple'" :ds="tab.data"></MultipleView>
+        <MultipleViewCor v-if="tab.type == 'multiplecor'" :ds="tab.data"></MultipleViewCor>
+        <MultipleViewCor2 v-if="tab.type == 'multiplecor2'" :ds="tab.data"></MultipleViewCor2>
+        <MultipleViewCor3 v-if="tab.type == 'multiplecor3'" :ds="tab.data"></MultipleViewCor3>
         <v-card-text v-if="tab.type == 'home'">{{tab.type}}</v-card-text>
       </v-window-item>
     </v-window>
@@ -58,15 +61,21 @@
 import Network from '@/components/Network.vue';
 import Heatmap from '@/components/Heatmap.vue';
 import MultipleView from '@/components/MultipleView.vue';
+import MultipleViewCor from '@/components/MultipleViewCor.vue';
+import MultipleViewCor2 from '@/components/MultipleViewCor2.vue';
+import MultipleViewCor3 from '@/components/MultipleViewCor4.vue';
 import {Tab} from '@/objs/Tab.js';
-import {BFI, APCAT} from '@/objs/Dataset.js';
+import {BFIgeomin, APCAT} from '@/objs/Dataset.js';
 import * as d3 from "d3";
 
 export default {
     components: {
       Network,
       Heatmap,
-      MultipleView
+      MultipleView,
+      MultipleViewCor,
+      MultipleViewCor2,
+      MultipleViewCor3
     },
     data() {
         return {
@@ -80,14 +89,19 @@ export default {
       }
     },
     mounted() {
-      this.$store.commit('addDS', APCAT);
+      //this.$store.commit('addDS', APCAT);
       //this.$store.commit('appendTab', Tab.Types.NETWORK);
       //this.$store.commit('appendTab', Tab.Types.HEATMAP);
-      this.$store.commit('appendTab', Tab.Types.MULTIPLE);
-      this.$store.commit('addDS', BFI);
+      //this.$store.commit('appendTab', Tab.Types.MULTIPLE);
+      //this.$store.commit('appendTab', Tab.Types.MULTIPLECOR2);
+      //this.$store.commit('appendTab', Tab.Types.MULTIPLECOR3);
+      this.$store.commit('addDS', BFIgeomin);
       //this.$store.commit('appendTab', Tab.Types.NETWORK);
       //this.$store.commit('appendTab', Tab.Types.HEATMAP);
-      this.$store.commit('appendTab', Tab.Types.MULTIPLE);
+      //this.$store.commit('appendTab', Tab.Types.MULTIPLE);
+      this.$store.commit('appendTab', Tab.Types.MULTIPLECOR);
+      this.$store.commit('appendTab', Tab.Types.MULTIPLECOR2);
+      this.$store.commit('appendTab', Tab.Types.MULTIPLECOR3);
       console.log("TAB: mounted");
     },
     watch: {

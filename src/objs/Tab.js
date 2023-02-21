@@ -27,6 +27,15 @@ export class Tab {
             case(Tab.Types.MULTIPLE):
                 this.type = type;
                 break;
+            case(Tab.Types.MULTIPLECOR):
+                this.type = type;
+                break;
+            case(Tab.Types.MULTIPLECOR2):
+                this.type = type;
+                break;
+            case(Tab.Types.MULTIPLECOR3):
+                this.type = type;
+                break;
             default:
                 throw "Invalid Tab Type: " + type;
         }
@@ -40,6 +49,9 @@ export class Tab {
         NETWORK:"network",
         HOME:"home",
         MULTIPLE:"multiple",
+        MULTIPLECOR:"multiplecor",
+        MULTIPLECOR2:"multiplecor2",
+        MULTIPLECOR3:"multiplecor3",
     };
 }
 

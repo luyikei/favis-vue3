@@ -1,12 +1,29 @@
 <template>
-  <v-row  no-gutters>
-    <v-col md="5">
-      <Network :ds="ds" :networkProps="networkProps" :commonProps="commonProps" @selectionChanged="selectionChanged"
-      @clicked="clickedChanged"></Network>
-    </v-col>
-      <v-divider vertical></v-divider>
-    <v-col md="5">
-      <Heatmap :ds="ds" :heatmapProps="heatmapProps" :commonProps="commonProps" @clicked="clickedChanged"></Heatmap>
+  <v-row  no-gutters style="height: 100%;">
+    <v-col md="10" class="d-flex flex-column" style="height: calc(100vh - 65px); ">
+      <div class="d-flex flex-row" style="flex: 1 1 auto; width: 100%;">
+        <div style="flex: 3 0 0; position: relative;">
+          <div class="viewtitle">Network View</div>
+          <Network :ds="ds" :networkProps="networkProps" :commonProps="commonProps" @selectionChanged="selectionChanged"
+        @clicked="clickedChanged"></Network>
+        </div>
+        <v-divider vertical></v-divider>
+        <div style="flex: 3 0 0; position: relative;">
+          <div class="viewtitle">Heatmap View</div>
+        <Heatmap :ds="ds" :heatmapProps="heatmapProps" :commonProps="commonProps" @clicked="clickedChanged"></Heatmap>
+        </div>
+        <v-divider vertical></v-divider>
+        <div v-if="ds.phi" style="flex: 1 0 0; position: relative;">
+          <div class="viewtitle">Factor Correlations View</div>
+        <NetworkCor :ds="ds" :commonProps="commonProps" @selectionChanged="selectionChanged"
+        @clicked="clickedChanged"></NetworkCor>
+        </div>
+      </div>
+      <v-divider ></v-divider>
+      <div style="flex-shrink: 1;">
+        <Table :ds="ds" :commonProps="commonProps" @selectionChanged="selectionChanged"
+        @clicked="clickedChanged"></Table>
+      </div>
     </v-col>
       <v-divider vertical></v-divider>
     <v-col md="2" class="scrollable">
@@ -32,6 +49,10 @@ body {
   overflow-x: hidden;
   padding-right: 20px;
 }
+
+.viewtitle {
+  font-size: small;
+}
 </style>
 
 
@@ -40,6 +61,8 @@ import CommonControls from '@/components/CommonControls.vue'
 import NetworkControls from '@/components/NetworkControls.vue'
 import HeatmapControls from '@/components/HeatmapControls.vue'
 import Network from '@/components/Network.vue';
+import NetworkCor from '@/components/NetworkCor.vue';
+import Table from '@/components/Table.vue';
 import Heatmap from '@/components/Heatmap.vue';
 import * as d3 from "d3";
 
@@ -47,10 +70,12 @@ export default {
   props: ["ds"],
   components: {
       Network,
+      NetworkCor,
       Heatmap,
       NetworkControls,
       HeatmapControls,
-      CommonControls
+      CommonControls,
+      Table
   },
   data() {
     return {

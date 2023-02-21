@@ -1,6 +1,6 @@
 <template>
   <v-sheet>
-    <v-card-title>Selection</v-card-title>
+    <v-card-title>Filtering</v-card-title>
     <v-card-text fluid>
     <v-text-field
     v-model="commonProps.searchText"
@@ -101,6 +101,7 @@ export default {
       handler(clicked){
         this.commonProps.clickedVar = clicked.var;
         this.commonProps.clickedFactor = clicked.factor;
+        this.commonProps.clickedSort = clicked.sort;
       },
       deep: true
     },

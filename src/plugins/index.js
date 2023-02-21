@@ -16,9 +16,10 @@ import {Tab} from '@/objs/Tab.js';
 const store = createStore({
   state () {
     return {
-        dss: [],
-        tabs: [new Tab("Getting Started", "test", Tab.Types.HOME)],
-        tabWindowHeight: 0,
+      currentds: 0,
+      dss: [],
+      tabs: [new Tab("Getting Started", "test", Tab.Types.HOME)],
+      tabWindowHeight: 0,
     }
   },
   mutations: {

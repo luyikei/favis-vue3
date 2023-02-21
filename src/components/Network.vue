@@ -1,5 +1,5 @@
 <template>
-  <svg ref="svg" width="100%" height="100%" :viewBox="svgViewBox">
+  <svg ref="svg" width="100%" height="100%">
     <g ref="svgfield" :transform="svgGOffeset">
       <g class="hulls" ref="hulls"></g>
       <g class="links" ref="links"></g>
@@ -42,21 +42,23 @@ import {faviscolorscheme, faviscolorscale, Swatches} from "@/objs/d3colorlegend.
 import {Tooltip} from '@/objs/d3tooltip.js';
 
 export default {
-  props: ["ds", "showControls", "networkProps", "commonProps"],
+  props: ["ds", "networkProps", "commonProps"],
   emits: ['clicked', 'selectionChanged'],
   data() {
     return {
-      width: 400,
-      height: 400,
+      width: 0,
+      height: 0,
       margin: { top: 20, right: 20, bottom: 20, left: 20 },
       x: 0,
       y: 0,
       scale: 1,
-      link_color: false,
+      link_color: "Factor",
+      node_color: "Factor with Biggest Loading",
       link_opacity: 0.6,
       opacityisolated: 0.1,
       thres: 0.4,
       displayHull: true,
+      searchText: "",
       selection: {
         var: null,
         factor: null
@@ -133,6 +135,15 @@ export default {
               .attr("stroke-linejoin", "round")
               .attr("stroke-opacity", 0.3)
               .attr("opacity", 0.3)
+              .on("click", (e, d) => {
+                this.clicked = {
+                  var: null,
+                  factor: d["factor"] - 1,
+                  sort: null
+                };
+                this.$emit('clicked', this.clicked);
+                e.stopPropagation();
+              })
               .on("mouseover", (event, d) => {
                 this.selection.factor = d["factor"] - 1;
                 this.$emit('selectionChanged', this.selection);
@@ -163,6 +174,9 @@ export default {
     };
   },
   watch: {
+    node_color: function () {
+      this.updateGraph();
+    },
     link_color: function () {
       this.updateGraph();
     },
@@ -173,6 +187,9 @@ export default {
       this.updateGraph();
     },
     thres: function () {
+      this.updateGraph();
+    },
+    searchText() {
       this.updateGraph();
     },
     ds: function () {
@@ -202,6 +219,7 @@ export default {
         this.scale = networkProps.scale;
         this.opacityisolated = networkProps.opacityisolated;
         this.link_opacity = networkProps.link_opacity;
+        this.node_color = networkProps.node_color;
         this.link_color = networkProps.link_color;
         this.displayHull = networkProps.displayHull;
         this.attractiveForce = networkProps.attractiveForce;
@@ -216,6 +234,7 @@ export default {
         this.selection.factor = commonProps.selectedFactor;
         this.clicked.var = commonProps.clickedVar;
         this.clicked.factor = commonProps.clickedFactor;
+        this.searchText = commonProps.searchText;
       },
       deep: true
     }
@@ -225,16 +244,16 @@ export default {
       return `${this.x + (this.svgWidth - this.svgWidth/this.scale) / 2},
       ${this.y + (this.svgWidth - this.svgWidth/this.scale) / 2}, 
       ${this.svgWidth/this.scale}, 
-      ${this.svgHeight/this.scale}` },
-    
+      ${this.svgHeight/this.scale}`
+    },
     svgWidth() {
-      return this.width + this.margin.left + this.margin.right;
+      return this.width;
     },
     svgHeight() {
-      return this.height + this.margin.top + this.margin.bottom;
+      return this.height;
     },
     svgGOffeset() {
-      return "translate(" + this.svgWidth / 2 + "," + this.svgHeight / 2 + ")";
+      return `scale(${this.scale}) translate(${-this.x + this.width / 2/this.scale},${-this.y + this.height / 2/this.scale})`;
     },
   },
   methods: {
@@ -251,36 +270,52 @@ export default {
       let graph = {};
       graph["nodes"] = [];
       graph["links"] = [];
+      graph.nodedict = {};
       this.ds.names.forEach((element, i) => {
-        graph["nodes"].push({
-          i: i,
-          id: element,
-          linked: new Set(),
-          groups: new Set(),
-          group: 0,
-          loading: 0,
-        });
+        if (!this.searchText || (this.searchText && element.startsWith(this.searchText))) {
+          graph.nodedict[i] = graph.nodes.length;
+          graph["nodes"].push({
+            i: i,
+            id: element,
+            groups: new Set(),
+            group: 0,
+            loading: 0,
+          });
+        }
       });
 
       let groups = new Set();
       groups.add(0);
-      let lnks = Array(this.ds.names.length).fill(0).map(() => Array(this.ds.names.length).fill(0));
+      let lnks = Array(graph.nodes.length).fill(0).map(() => Array(graph.nodes.length).fill(0));
+      let glinkind = Array(graph.nodes.length).fill(0).map(() => Array(graph.nodes.length).fill(0));
       for (let i = 0; i < this.ds.matrix.length; i++) {
-        for (let j = 0; j < this.ds.matrix[i].length - 1; j++) {
-          const element1 = Math.abs(this.ds.matrix[i][j].z);
-          if (element1 <= this.thres) continue;
-          for (let k = j + 1; k < this.ds.matrix[i].length; k++) {
-            const element2 = Math.abs(this.ds.matrix[i][k].z);
+        for (let j = 0; j < graph.nodes.length - 1; j++) {
+          const element1 = Math.abs(this.ds.matrix[i][graph.nodes[j].i].z);
+          if (element1 < this.thres) continue;
+          for (let k = j + 1; k < graph.nodes.length; k++) {
+            const element2 = Math.abs(this.ds.matrix[i][graph.nodes[k].i].z);
             if (
-              !lnks[j][k]  &&
-              element2 > this.thres
+              element2 >= this.thres
               ) {
+                if (lnks[k][j] == 0) {
+                  glinkind[j][k] = graph.links.length;
+                  glinkind[k][j] = graph.links.length;
+                  graph.links.push({
+                    source: graph.nodes[j].id,
+                    target: graph.nodes[k].id,
+                    value: (element1 + element2) / 2,
+                    group: i + 1
+                  });
+                } else {
+                  if (graph.nodes[j].loading + graph.nodes[k].loading < element1 + element2) {
+                    graph.links[glinkind[j][k]].value = (element1 + element2) / 2;
+                    graph.links[glinkind[j][k]].group = i + 1;
+                  }
+                }
                 lnks[j][k] = i + 1;
                 lnks[k][j] = i + 1;
                 graph.nodes[j].groups.add(i + 1);
-                graph.nodes[j].linked.add(this.ds.names[k]);
                 graph.nodes[k].groups.add(i + 1);
-                graph.nodes[k].linked.add(this.ds.names[j]);
                 if (graph.nodes[j].loading < element1) {
                   graph.nodes[j].loading = element1;
                   graph.nodes[j].group = i + 1;
@@ -289,28 +324,43 @@ export default {
                   graph.nodes[k].loading = element2;
                   graph.nodes[k].group = i + 1;
                 }
-                graph.links.push({
-                  source: this.ds.names[j],
-                  target: this.ds.names[k],
-                  value: 1,
-                  group: i + 1
-                });
                 groups.add(i + 1);
             }
           }
         }
       }
-    
-      let domainlables = {};
-      let domain = Array.from(groups);
-      this.color.domain(domain);
-      domainlables[0] = "Does not belong to any factor"
-      for (let i = 1; i < domain.length; ++i) {
-        domainlables[domain[i]] = this.ds.row_names[domain[i] - 1];
+
+      if (this.node_color == "Factor with Biggest Loading") {
+        let domainlables = {};
+        let domain = Array.from(groups);
+        this.color = d3.scaleOrdinal(faviscolorscheme);
+        this.color.domain(domain);
+        domainlables[0] = "Does not belong to any factor";
+        for (let i = 1; i < domain.length; ++i) {
+          domainlables[domain[i]] = this.ds.row_names[domain[i] - 1];
+        }
+        this.$refs.legend.innerHTML = "";
+        this.$refs.legend.appendChild(
+          Swatches(this.color, {columns: "180px", domainlables: domainlables}));
+      } else {
+        let ngroup = 0;
+        graph.nodes.forEach((element, i) => {
+          element.ngroup = element.groups.size;
+          ngroup = Math.max(ngroup, element.ngroup);
+        });
+        let domainlables = {};
+        let domain = d3.range(ngroup + 1);
+        this.color = d3.scaleOrdinal(faviscolorscheme);
+        this.color.domain(domain);
+        for (let i = 0; i < domain.length; ++i) {
+          domainlables[domain[i]] = `${domain[i]}`;
+        }
+        if (domain[0] == 0)
+          domainlables[0] = "Does not belong to any factor"
+        this.$refs.legend.innerHTML = "";
+        this.$refs.legend.appendChild(
+          Swatches(this.color, {columns: "180px", domainlables: domainlables}));
       }
-      this.$refs.legend.innerHTML = "";
-      this.$refs.legend.appendChild(
-        Swatches(this.color, {columns: "180px", domainlables: domainlables}));
 
       let links = d3.select(this.$refs.links);
       let nodes = d3.select(this.$refs.nodes);
@@ -320,6 +370,11 @@ export default {
         .on("click", () => {
           this.clicked = {};
           this.$emit('clicked', this.clicked);
+          this.selection = {
+            var: null,
+            factor: null
+          };
+          this.$emit('selectionChanged', this.selection);
         })
         .attr("pointer-events", "all").call(d3
         .drag()
@@ -348,18 +403,18 @@ export default {
       let node = nodes.selectAll("circle").data(graph.nodes, (d) => d.id);
       let nodestyle = node => {
         node
-          .attr("r", d => this.clicked.var && this.clicked.var == d.i ? 7 : 5)
+          .attr("r", d => typeof this.clicked.var == "number" && this.clicked.var == d.i ? 7 : 5)
           .attr("stroke", (d) => {
-            return this.clicked.var && (this.clicked.var == d.i || lnks[this.clicked.var][d.i]) ? "black" : "transparent";
+            return typeof this.clicked.var == "number" && (this.clicked.var == d.i || lnks[graph.nodedict[this.clicked.var]][graph.nodedict[d.i]]) ? "black" : "transparent";
           })
           .attr("stroke-opacity", 1)
           .attr("opacity", (d) => {
-            if (this.clicked.var && (this.clicked.var == d.i || lnks[this.clicked.var][d.i])) return 1;
+            if (typeof this.clicked.var == "number" && (this.clicked.var == d.i || lnks[graph.nodedict[this.clicked.var]][graph.nodedict[d.i]])) return 1;
             if (d.group == 0) return this.opacityisolated;
-            if (this.clicked.var) return 0.5;
+            if (typeof this.clicked.var == "number") return 0.5;
             return 1;
           })
-          .attr("fill",  (d) =>  this.color(d.group) );
+          .attr("fill",  (d) => this.node_color == "Factor with Biggest Loading" ? this.color(d.group) : this.color(d.ngroup));
         return node;
       };
       
@@ -368,7 +423,11 @@ export default {
         .append("circle")
         .call(nodestyle)
         .on("click", (e, d) => {
-          this.clicked.var = d.i;
+          this.clicked = {
+            var: d.i,
+            factor: null,
+            sort: null
+          };
           this.$emit('clicked', this.clicked);
           e.stopPropagation();
         })
@@ -381,7 +440,7 @@ export default {
           this.tooltip.mousemove(event, {
             var: d.id,
             factor: Array.from(d.groups).map(x=>this.ds.row_names[x-1]).join(', '),
-            codebook: this.ds.codebook[d.id]
+            codebook: this.ds.codebook ? this.ds.codebook[d.id] : null
           })
         })
         .on("mouseleave", (event) => this.tooltip.mouseleave(event))
@@ -393,7 +452,7 @@ export default {
 
       let linkstyle = link => {
         link
-          .attr("stroke", this.link_color ? d => this.color(d.group) : "#999")
+          .attr("stroke", this.link_color == "Factor" ? d => this.color(d.group) : (this.link_color == "Mean of Two Factor Loadings" ? d => this.cScale(d.value) : "#999"))
           .attr("stroke-opacity", d => {
             if (this.clicked.var && d.source != this.ds.names[this.clicked.var] && d.target != this.ds.names[this.clicked.var])
               return Math.min(0.1, this.link_opacity);
@@ -401,7 +460,10 @@ export default {
               return 1
             return this.link_opacity;
           })
-          .attr("stroke-width", (d) => Math.sqrt(d.value));
+          .attr("stroke-width", (d) => {
+            //console.log(d.value);
+            return 1;
+          });
         return link;
       };
 
@@ -410,6 +472,15 @@ export default {
         .enter()
         .append("line")
         .call(linkstyle)
+        .on("click", (e, d) => {
+          this.clicked = {
+            var: null,
+            factor: d.group-1,
+            sort: null
+          };
+          this.$emit('clicked', this.clicked);
+          e.stopPropagation();
+        })
         .on("mouseover", (event, d) => {
           this.selection.factor = d.group-1;
           this.$emit('selectionChanged', this.selection);
@@ -453,10 +524,23 @@ export default {
           .on("end", dragended);
       }
     },
+    resizeHandler(event) {
+      this.height = this.$refs.svg.clientHeight;
+      this.width = this.$refs.svg.clientWidth;
+    },
+  },
+  created() {
+      window.addEventListener('resize', this.resizeHandler);
+  },
+  destroyed() {
+      window.removeEventListener('resize', this.resizeHandler);
   },
   mounted() {
     this.tooltip = new Tooltip(this.$refs.tooltip);
     // this.updateGraph(); Through updated in CommonControls
+    this.resizeObserver = new ResizeObserver(this.resizeHandler);
+    this.resizeObserver.observe(this.$refs.svg);
+    this.resizeHandler();
   },
 };
 </script>

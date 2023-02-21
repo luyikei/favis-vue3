@@ -5,6 +5,7 @@ export class Tooltip {
     this.tip = d3.select(div)
       .style("opacity", 0)
       .attr("class", "tooltip")
+      .style("position", "fixed")
       .style("background-color", "white")
       .style("border", "solid")
       .style("border-width", "1px")
@@ -20,11 +21,24 @@ export class Tooltip {
   mousemove(event, d) {
     this.tip.style("opacity", 1).style("z-index", "100");
     const [x, y] = [event.clientX, event.clientY];
-    this.tip
-      .html(!d.codebook ? `Variable: ${d.var}<br>Factor: ${d.factor}` : `Variable: ${d.var}<br>Factor: ${d.factor} <br><br>${Tooltip.formatCodebook(d.codebook)}`)
-      .style("position", "fixed")
-      .style("left", `${x + 7}px`)
-      .style("top", `${y + 7}px`);
+    if (d.var == null && d.factor == null)
+      this.tip
+        .html(`${Tooltip.formatCodebook(d.codebook)}`)
+        .style("position", "fixed")
+        .style("left", `${x + 7}px`)
+        .style("top", `${y + 7}px`);
+    else if (d.var == null)
+      this.tip
+        .html(d.codebook ? `Factor: ${d.factor}<br>${Tooltip.formatCodebook(d.codebook)}` : `Factor: ${d.factor}`)
+        .style("position", "fixed")
+        .style("left", `${x + 7}px`)
+        .style("top", `${y + 7}px`);
+    else
+      this.tip
+        .html(!d.codebook ? `Variable: ${d.var}<br>Factor: ${d.factor}` : `Variable: ${d.var}<br>Factor: ${d.factor} <br><br>${Tooltip.formatCodebook(d.codebook)}`)
+        .style("position", "fixed")
+        .style("left", `${x + 7}px`)
+        .style("top", `${y + 7}px`);
   }
 
   mouseleave(event) {

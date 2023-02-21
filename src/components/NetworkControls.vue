@@ -50,6 +50,20 @@
       class="pb-5"
         >
       </v-slider>
+      <v-select
+        v-model="networkProps.node_color"
+        :items="networkProps.node_color_items"
+        filled
+        label="Node Color"
+        return-object
+      ></v-select>
+      <v-select
+        v-model="networkProps.link_color"
+        :items="networkProps.link_color_items"
+        filled
+        label="Link Color"
+        return-object
+      ></v-select>
       <v-slider
         v-model.number="networkProps.opacityisolated"
         min="0"
@@ -62,12 +76,6 @@
         class="pb-5"
         >
       </v-slider>
-      <v-checkbox
-        v-model="networkProps.link_color"
-        label="Use Factor Color for Link"
-        hide-details="auto"
-      class="pb-2"
-      ></v-checkbox>
       <v-checkbox
         v-model="networkProps.displayHull"
         label="Disply Convex Hull"
@@ -96,7 +104,10 @@ export default {
         scale: 1,
         opacityisolated: 0.1,
         link_opacity: 0.6,
-        link_color: false,
+        link_color: "Factor",
+        link_color_items: ["Factor", "Mean of Two Factor Loadings", "Gray"],
+        node_color: "Factor with Biggest Loading",
+        node_color_items: ["Factor with Biggest Loading", "Number of Cross Loadings"],
         displayHull: true,
         attractiveForce: 10,
         repulsiveForce: 30,
