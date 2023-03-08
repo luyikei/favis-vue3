@@ -30,6 +30,7 @@ export class Legend {
     marginRight = 0,
     marginBottom = 16 + tickSize,
     marginLeft = 0,
+    marginLeftText = 0,
     ticks = width / 64,
     tickFormat,
     tickValues,
@@ -164,7 +165,7 @@ export class Legend {
     this.tickAdjust(g);
     g.select(".domain").remove()
     this.text = g.append("text")
-          .attr("x", marginLeft)
+          .attr("x", marginLeft + marginLeftText)
           .attr("y", marginTop + marginBottom - height - 6)
           .attr("fill", "currentColor")
           .attr("text-anchor", "start")

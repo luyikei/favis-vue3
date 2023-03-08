@@ -63,9 +63,9 @@ export default {
     return {
       heatmapProps: {
         scale: 1,
-        isAbs: false,
+        isAbs: true,
         isT: false,
-        tocolorfactor: false,
+        tocolorfactor: true,
         isThresholded: true,
         sortOnClick: true,
         searchText: "",

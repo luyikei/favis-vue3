@@ -25,10 +25,13 @@ import {Tooltip} from '@/objs/d3tooltip.js';
 import {NetworkD3,} from '@/objs/d3Network.js'
 import { classicalElectronRadiusDependencies } from "mathjs";
 
+import { useCommonProps } from '@/objs/commonProps.js'
+
 export default {
   props: ["ds", "commonProps"],
   emits: ['clicked', 'selectionChanged'],
   data() {
+    const {clicked} = useCommonProps();
     return {
       width: 0,
       height: 0,
@@ -36,11 +39,7 @@ export default {
       y:0,
       d3network: null,
       cScale: faviscolorscale2,
-      clicked : {
-        var: null,
-        factor: null,
-        sort: null,
-      }
+      clicked : clicked
     };
   },
   computed: {
@@ -66,13 +65,8 @@ export default {
     }
   },
   watch: {
-    commonProps: {
-      handler(commonProps){
-        this.clicked = {
-          var: commonProps.clickedVar,
-          factor: commonProps.clickedFactor,
-          sort: commonProps.clickedSort
-        };
+    clicked: {
+      handler(clicked){
         this.d3network.onClicked(this.clicked);
       },
       deep: true
@@ -87,12 +81,11 @@ export default {
   mounted() {
     d3.select(this.$refs.svg)
       .on('click', () => {
-        this.clicked = {
+        this.$store.commit("updateClicked", {
           var: null,
           factor: null,
           sort: null
-        };
-        this.$emit('clicked', this.clicked);
+        });
       })
       .attr("pointer-events", "all").call(d3
       .drag()
@@ -100,7 +93,6 @@ export default {
         svg.style("cursor", "grabbing");
       })
       .on("drag", (event) => {
-        console.log([this.x, this.y]);
         this.x -= event.dx;
         this.y -= event.dy;
       })
@@ -129,12 +121,11 @@ export default {
       nodeTitle: d => `${this.ds.row_names[d.group]}`,
       nodeStrokeWidth: 0,
       nodeClickedCb: (e, d, i) => {
-        this.clicked = {
+        this.$store.commit("updateClicked", {
           var: null,
           factor: d.id,
           sort: null
-        };
-        this.$emit('clicked', this.clicked);
+        });
         e.stopPropagation();
       },
       linkStroke: d => this.cScale(d.value),
@@ -143,18 +134,19 @@ export default {
         return Math.abs(this.ds.phi[d.source.id][d.target.id]);
       },
       colors: [
-        "#76b7b2",
-        "#59a14f",
-        "#edc949",
-        "#af7aa1",
-        "#ff9da7",
-        "#9c755f",
-        "#bab0ab"
-      ]
+  "#f28e2c",
+  "#76b7b2",
+  "#59a14f",
+  "#edc949",
+  "#af7aa1",
+  "#ff9da7",
+  "#9c755f"
+]
     });
     this.legend = new Legend(this.cScale, {
       width: 100,
       title: "Factor Correlation",
+      marginLeftText: 10,
     });
     this.$refs.legend.appendChild(this.legend.node());
     this.tooltip = new Tooltip(this.$refs.tooltip);

@@ -1,36 +1,31 @@
 <template>
   <v-app>
     <v-main>
-      <Tab class="vh-100 d-flex"></Tab>
+      <MultipleViewCor5 :ds="ds"></MultipleViewCor5>
     </v-main>
   </v-app>
 </template>
 
+<style scoped>
+</style>
+
 <script>
-import Tab from '@/views/Tab.vue';
+
+import MultipleViewCor5 from '@/views/MultipleViewCor5.vue';
+import {BFIgeomin, APCAT} from '@/objs/Dataset.js';
 
 export default {
-  name: 'App',
+  name: 'Home',
 
   components: {
-    Tab
+    MultipleViewCor5
   },
 
   data: () => ({
-    //
+    ds: APCAT  
   }),
-  methods: {
-    createHeatMap() {
-      console.log(this.$tabs);
-      console.log("create heatmap")
-    },
-    createNetwork() {
-      console.log("creating network")
-    },
-    createGraph() {
-      console.log("creating graph")
-    }
 
+  methods: {
   }
 };
 </script>

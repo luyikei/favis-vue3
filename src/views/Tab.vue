@@ -60,10 +60,10 @@
 <script>
 import Network from '@/components/Network.vue';
 import Heatmap from '@/components/Heatmap.vue';
-import MultipleView from '@/components/MultipleView.vue';
-import MultipleViewCor from '@/components/MultipleViewCor.vue';
-import MultipleViewCor2 from '@/components/MultipleViewCor2.vue';
-import MultipleViewCor3 from '@/components/MultipleViewCor4.vue';
+import MultipleView from '@/views/MultipleView.vue';
+import MultipleViewCor from '@/views/MultipleViewCor.vue';
+import MultipleViewCor2 from '@/views/MultipleViewCor2.vue';
+import MultipleViewCor3 from '@/views/MultipleViewCor4.vue';
 import {Tab} from '@/objs/Tab.js';
 import {BFIgeomin, APCAT} from '@/objs/Dataset.js';
 import * as d3 from "d3";

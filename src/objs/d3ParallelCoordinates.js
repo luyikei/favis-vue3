@@ -17,12 +17,15 @@ export class ParallelCoordinatesD3 {
     margin = ({top: 50, right: 20, bottom: 30, left: 10}),
     brushWidth = 15,
     deselectedColor = "#eee",
+    selectionChangedCb = (selected) => {},
     label = d => d.Factor,
     colors = d3.interpolateBrBG} = {}) {
     
     this.dataOrig = data;
     this.data = data;
     this.keys = Object.keys(this.data[0]).slice(1);
+    this.order = d3.range(this.keys.length);
+    this.orderedKeys = this.order.map(i => this.keys[i]);
     this.margin = margin;
     this.abs = abs;
     this.commonScale = commonScale;
@@ -32,6 +35,7 @@ export class ParallelCoordinatesD3 {
     this.vnames = vnames;
     this.fnames = fnames;
     this.deselectedColor = deselectedColor;
+    this.selectionChangedCb = selectionChangedCb;
 
     if (abs) {
       for (let i = 0; i < this.data.length; ++i) {
@@ -66,11 +70,12 @@ export class ParallelCoordinatesD3 {
       //.data(data.slice().sort((a, b) => d3.ascending(a[keyz], b[keyz]) ))
       .data(this.data)
       .join("path")
+        .attr('pointer-events', 'visibleStroke')
         //.attr("stroke", d => z(d[keyz]))
         .attr("stroke", (d, i) => {
           return this.z(i+1);
         })
-        .attr("d", d => this.line(d3.cross(this.keys, [d], (key, d) => [key, d[key]])) );
+        .attr("d", d => this.line(d3.cross(this.keys, [d], (key, d) => [key, d[key]])) ) ;
   
     this.path.append("title")
         .text(label);
@@ -91,20 +96,23 @@ export class ParallelCoordinatesD3 {
           else this.selections.set(key, selection.map(this.y.get(key).invert));
           const selected = [];
           this.path.each(function(d, i) {
-            const active = Array.from(that.selections).every(([key, [a, b]]) => {
+            const sel = Array.from(that.selections);
+            const active = sel.length && sel.every(([key, [a, b]]) => {
               const min = Math.min(a, b);
               const max = Math.max(a, b);
               return d[key] >= min && d[key] <= max;
             });
-            d3.select(this).style("stroke", active ? that.z(i+1) : deselectedColor);
+            d3.select(this).attr("stroke", active ? that.z(i+1) : deselectedColor);
             if (active) {
               d3.select(this).raise();
               selected.push(d);
             }
           });
-          svg.property("value", selected).dispatch("input");
+          if (!selected.length && !this.selected.size) this.path.attr("stroke", (d,i) => that.z(i+1));
+          this.selectionChangedCb(selected.map(x => this.isFactor ? this.fnames.indexOf(x.Factor) : this.vnames.indexOf(x.Variable)));
         });
 
+    const naxis = this.orderedKeys.length;
     this.axisg = svg.append("g")
       .selectAll("g")
       .data(this.keys)
@@ -115,14 +123,17 @@ export class ParallelCoordinatesD3 {
           //if (onlyFirstAxis && i > 0) {
           //  axis.tickFormat(() => "");
           //};
-          let elem = d3.select(this).call(axis); 
-          elem.attr("opacity", 0);
+          let elem = d3.select(this).call(axis);
+          let opacity = 0;
+          if (naxis < 21) opacity = 1;
+          else if (i % Math.ceil(naxis / 5) == 0) opacity = 1;
+          elem.attr("opacity", opacity);
           elem
             .on("mouseover", (event, d) => {
               elem.attr("opacity", 0.7);
             })
             .on("mouseleave", (event, d) => {
-              if (!that.selected.has(d)) elem.attr("opacity", 0);
+              if (!that.selected.has(d)) elem.attr("opacity", opacity);
             });
           return elem;
         })
@@ -142,29 +153,45 @@ export class ParallelCoordinatesD3 {
           .attr("stroke", "white"))
         .call(this.brush);
   }
+  clear() {
+    this.brush.clear(this.axisg);
+    this.axisg.join("g").each(function(d, i) { 
+      let elem = d3.select(this); 
+      elem.attr("opacity", 0);
+      return elem;
+    });
+  }
+  onSelected(selected) {
+    //if (!selected.var.size && !selected.factor.size) {
+    //  this.path.attr("stroke", (d,i) => this.z(i+1));
+    //  return;
+    //}
+    //this.path.attr("stroke", (d, i) => {
+    //  const active = (!this.isFactor && selected.var.has(i)) || (this.isFactor && selected.factor.has(i));
+    //  return active ? this.z(i+1) : this.deselectedColor;
+    //});
+  }
   onClicked(clicked) {
     const that = this;
     this.path.each(function(d, i) {
       const p = d3.select(this);
       if (!that.isFactor && typeof clicked.var == 'number') {
         const isClicked = that.vnames[clicked.var] == d.Variable;
-        p.style("stroke", isClicked ? that.z(i+1) : that.deselectedColor);
+        p.attr("stroke", isClicked ? that.z(i+1) : that.deselectedColor);
         if (isClicked) p.raise();
       } else if (that.isFactor && typeof clicked.factor == 'number') {
         const isClicked = that.fnames[clicked.factor] == d.Factor;
-        p.style("stroke", isClicked ? that.z(i+1) : that.deselectedColor);
+        p.attr("stroke", isClicked ? that.z(i+1) : that.deselectedColor);
         if (isClicked) p.raise();
       } else {
-        p.style("stroke", that.z(i+1));
+        if (!that.selected.size) p.attr("stroke", that.z(i+1));
       }
     });
   }
-  updateSize(width, height) {
+  update() {
     const that = this;
-    this.width = width;
-    this.height = height;
-    this.x = d3.scalePoint(this.keys, [this.margin.left, this.width - this.margin.right]);
-    this.y = this.commonScale ? new Map(Array.from(this.keys, key => [key, d3.scaleLinear([this.abs ? 0 : -1 , 1], [this.height - this.margin.bottom, this.margin.top])])) : new Map(Array.from(this.keys, key => [key, d3.scaleLinear(d3.extent(this.data, d => d[key]), [this.margin.top, this.height - this.margin.bottom])]));
+    this.x = d3.scalePoint(this.orderedKeys, [this.margin.left, this.width - this.margin.right]);
+    this.y = this.commonScale ? new Map(Array.from(this.orderedKeys, key => [key, d3.scaleLinear([this.abs ? 0 : -1 , 1], [this.height - this.margin.bottom, this.margin.top])])) : new Map(Array.from(this.keys, key => [key, d3.scaleLinear(d3.extent(this.data, d => d[key]), [this.margin.top, this.height - this.margin.bottom])]));
     this.brush.extent([
       [-(this.brushWidth / 2), this.margin.top],
       [this.brushWidth / 2, Math.max(this.margin.top, this.height - this.margin.bottom)]
@@ -190,6 +217,17 @@ export class ParallelCoordinatesD3 {
         .attr("stroke", (d, i) => {
           return this.z(i+1);
         })
-        .attr("d", d => this.line(d3.cross(this.keys, [d], (key, d) => [key, d[key]])) );
+        .attr("d", d => this.line(d3.cross(this.orderedKeys, [d], (key, d) => [key, d[key]])) );
+  }
+  updateSize(width, height) {
+    this.width = width;
+    this.height = height;
+    this.update();
+  }
+  updateOrder(order) {
+    const that = this;
+    this.order = order;
+    this.orderedKeys = order.map(i => this.keys[i]);
+    this.update();
   }
 }

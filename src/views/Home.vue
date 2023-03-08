@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-main>
-      <Tab></Tab>
+      <MultipleViewCor3 v-if="tab.type == 'multiplecor3'" :ds="ds"></MultipleViewCor3>
     </v-main>
   </v-app>
 </template>
@@ -10,26 +10,22 @@
 </style>
 
 <script>
-import Tab from '@/views/Tab.vue';
+
+import MultipleViewCor4 from '@/views/MultipleViewCor4.vue';
+import {BFIgeomin, APCAT} from '@/objs/Dataset.js';
 
 export default {
   name: 'Home',
 
   components: {
-    Tab
+    MultipleViewCor4
   },
 
   data: () => ({
-    //
+    ds: BFIgeomin  
   }),
-  methods: {
-    createHeatMap() {
-    },
-    createNetwork() {
-    },
-    createGraph() {
-    }
 
+  methods: {
   }
 };
 </script>

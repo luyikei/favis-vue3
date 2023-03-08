@@ -16,6 +16,7 @@
   position: sticky;
   top: 10px;
 }
+
 .links line {
   stroke: #999;
   stroke-opacity: 0.6;
@@ -33,18 +34,19 @@
   top: 20px;
   left: 20px;
 }
-
 </style>
 
 <script>
 import * as d3 from "d3";
-import {faviscolorscheme, faviscolorscale, Swatches} from "@/objs/d3colorlegend.js"
-import {Tooltip} from '@/objs/d3tooltip.js';
+import { faviscolorscheme, faviscolorscale, Swatches } from "@/objs/d3colorlegend.js"
+import { Tooltip } from '@/objs/d3tooltip.js';
+
+import { useCommonProps } from '@/objs/commonProps.js'
 
 export default {
   props: ["ds", "networkProps", "commonProps"],
-  emits: ['clicked', 'selectionChanged'],
   data() {
+    const { selection, clicked, hover, varCond, factorCond, MEvent } = useCommonProps();
     return {
       width: 0,
       height: 0,
@@ -59,118 +61,18 @@ export default {
       thres: 0.4,
       displayHull: true,
       searchText: "",
-      selection: {
-        var: null,
-        factor: null
-      },
-      clicked: {
-        var: null,
-        factor: null
-      },
+      selection,
+      clicked,
+      hover,
+      varCond,
+      factorCond,
+      MEvent,
       attractiveForce: 10,
       repulsiveForce: 30,
       color: d3.scaleOrdinal(faviscolorscheme),
       cScale: faviscolorscale,
 
       tooltip: null,
-
-      simulation: d3
-        .forceSimulation()
-        .force(
-          "link",
-          d3.forceLink().id(function (d) {
-            return d.id;
-          })
-        )
-        .force("charge", d3.forceManyBody())
-        .force("x", d3.forceX())
-        .force("y", d3.forceY())
-        .on("tick", () => {
-          let links = d3.select(this.$refs.links);
-          let nodes = d3.select(this.$refs.nodes);
-          let hull = d3.select(this.$refs.hulls);
-          links
-            .selectAll("line")
-            .attr("x1", (d) => d.source.x)
-            .attr("y1", (d) => d.source.y)
-            .attr("x2", (d) => d.target.x)
-            .attr("y2", (d) => d.target.y);
-          nodes
-            .selectAll("circle")
-            .attr("cx", (d) => d.x)
-            .attr("cy", (d) => d.y);
-          if (this.displayHull) {
-            let dat = nodes.selectAll("circle").data();
-            let domain = this.color.domain();
-            let points = {};
-            domain.forEach((num) => points[num] = []);
-            for (let i = 0; i < dat.length; i++) {
-              const point = dat[i];
-              point.groups.forEach(num => {
-                points[num].push([point.x, point.y]);
-              });
-            }
-            points = Object.values(points);
-            let pol = points.map(v => d3.polygonHull(v));
-            for (let i = 0; i < pol.length; i++) {
-              if (pol[i]) {
-                pol[i]["factor"] = domain[i];
-                pol[i]["name"] = (domain[i] ? this.ds.row_names[domain[i] - 1] : "None");
-              }
-            }
-            pol = pol.filter(v => v && v.length > 2);
-            let hulls = hull.selectAll("path").data(pol);
-            hulls
-              .enter()
-              .append("path")
-              .attr("d", function(d) {
-                if (d.length) {
-                  return "M" + d.join("L") + "Z"; 
-                } else {
-                  return null;
-                }})
-              .attr("fill", (d,i) => this.color(d["factor"]))
-              .attr("stroke", (d,i) => this.color(d["factor"]))
-              .attr("stroke-width", "2px")
-              .attr("stroke-linejoin", "round")
-              .attr("stroke-opacity", 0.3)
-              .attr("opacity", 0.3)
-              .on("click", (e, d) => {
-                this.clicked = {
-                  var: null,
-                  factor: d["factor"] - 1,
-                  sort: null
-                };
-                this.$emit('clicked', this.clicked);
-                e.stopPropagation();
-              })
-              .on("mouseover", (event, d) => {
-                this.selection.factor = d["factor"] - 1;
-                this.$emit('selectionChanged', this.selection);
-                this.tooltip.mouseover(event)
-              })
-              .on("mousemove", (event, d) =>{
-                this.tooltip.mousemove(event, {
-                  var: "",
-                  factor: d["name"]})
-                })
-              .on("mouseleave", (event) => this.tooltip.mouseleave(event))
-              ;
-            hulls
-              .attr("d", function(d) {
-                if (d.length) {
-                  return "M" + d.join("L") + "Z"; 
-                } else {
-                  return null;
-                }})
-              .attr("fill", (d,i) => this.color(d["factor"]))
-              .attr("stroke", (d,i) => this.color(d["factor"]));
-            hulls.exit().remove();
-          } else {
-              let hulls = hull.selectAll("path").data([]);
-              hulls.exit().remove();
-          }
-        }),
     };
   },
   watch: {
@@ -198,7 +100,7 @@ export default {
     attractiveForce: function () {
       this.simulation.stop();
       let forceLink = this.simulation.force("link");
-      if(!this.origStrength) this.origStrength = forceLink.strength();
+      if (!this.origStrength) this.origStrength = forceLink.strength();
       forceLink.strength((link) => this.attractiveForce / 10 * this.origStrength(link));
       this.simulation.alpha(1).restart();
     },
@@ -208,14 +110,26 @@ export default {
       forceNode.strength(-this.repulsiveForce);
       this.simulation.alpha(1).restart();
     },
-    clicked:  {
-      handler(clicked){
+    clicked: {
+      handler(clicked) {
         this.updateGraph();
       },
       deep: true
     },
-    networkProps:  {
-      handler(networkProps){
+    selection: {
+      handler(selection) {
+        this.updateGraph();
+      },
+      deep: true
+    },
+    hover: {
+      handler(hover) {
+        this.updateGraph();
+      },
+      deep: true
+    },
+    networkProps: {
+      handler(networkProps) {
         this.scale = networkProps.scale;
         this.opacityisolated = networkProps.opacityisolated;
         this.link_opacity = networkProps.link_opacity;
@@ -228,23 +142,18 @@ export default {
       deep: true
     },
     commonProps: {
-      handler(commonProps){
+      handler(commonProps) {
         this.thres = commonProps.thres;
-        this.selection.var = commonProps.selectedVar;
-        this.selection.factor = commonProps.selectedFactor;
-        this.clicked.var = commonProps.clickedVar;
-        this.clicked.factor = commonProps.clickedFactor;
-        this.searchText = commonProps.searchText;
       },
       deep: true
     }
   },
   computed: {
     svgViewBox() {
-      return `${this.x + (this.svgWidth - this.svgWidth/this.scale) / 2},
-      ${this.y + (this.svgWidth - this.svgWidth/this.scale) / 2}, 
-      ${this.svgWidth/this.scale}, 
-      ${this.svgHeight/this.scale}`
+      return `${this.x + (this.svgWidth - this.svgWidth / this.scale) / 2},
+      ${this.y + (this.svgWidth - this.svgWidth / this.scale) / 2}, 
+      ${this.svgWidth / this.scale}, 
+      ${this.svgHeight / this.scale}`
     },
     svgWidth() {
       return this.width;
@@ -253,16 +162,16 @@ export default {
       return this.height;
     },
     svgGOffeset() {
-      return `scale(${this.scale}) translate(${-this.x + this.width / 2/this.scale},${-this.y + this.height / 2/this.scale})`;
+      return `scale(${this.scale}) translate(${-this.x + this.width / 2 / this.scale},${-this.y + this.height / 2 / this.scale})`;
     },
   },
   methods: {
     networkPropsUpdated(networkProps) {
-        this.scale = networkProps.scale;
-        this.thres = networkProps.thres;
-        this.link_opacity = networkProps.link_opacity;
-        this.link_color = networkProps.link_color;
-        this.displayHull = networkProps.displayHull;
+      this.scale = networkProps.scale;
+      this.thres = networkProps.thres;
+      this.link_opacity = networkProps.link_opacity;
+      this.link_color = networkProps.link_color;
+      this.displayHull = networkProps.displayHull;
     },
     updateGraph() {
       console.log("NETWORK: updateGraph");
@@ -296,35 +205,35 @@ export default {
             const element2 = Math.abs(this.ds.matrix[i][graph.nodes[k].i].z);
             if (
               element2 >= this.thres
-              ) {
-                if (lnks[k][j] == 0) {
-                  glinkind[j][k] = graph.links.length;
-                  glinkind[k][j] = graph.links.length;
-                  graph.links.push({
-                    source: graph.nodes[j].id,
-                    target: graph.nodes[k].id,
-                    value: (element1 + element2) / 2,
-                    group: i + 1
-                  });
-                } else {
-                  if (graph.nodes[j].loading + graph.nodes[k].loading < element1 + element2) {
-                    graph.links[glinkind[j][k]].value = (element1 + element2) / 2;
-                    graph.links[glinkind[j][k]].group = i + 1;
-                  }
+            ) {
+              if (lnks[k][j] == 0) {
+                glinkind[j][k] = graph.links.length;
+                glinkind[k][j] = graph.links.length;
+                graph.links.push({
+                  source: graph.nodes[j].id,
+                  target: graph.nodes[k].id,
+                  value: (element1 + element2) / 2,
+                  group: i + 1
+                });
+              } else {
+                if (graph.nodes[j].loading + graph.nodes[k].loading < element1 + element2) {
+                  graph.links[glinkind[j][k]].value = (element1 + element2) / 2;
+                  graph.links[glinkind[j][k]].group = i + 1;
                 }
-                lnks[j][k] = i + 1;
-                lnks[k][j] = i + 1;
-                graph.nodes[j].groups.add(i + 1);
-                graph.nodes[k].groups.add(i + 1);
-                if (graph.nodes[j].loading < element1) {
-                  graph.nodes[j].loading = element1;
-                  graph.nodes[j].group = i + 1;
-                }
-                if (graph.nodes[k].loading < element2) {
-                  graph.nodes[k].loading = element2;
-                  graph.nodes[k].group = i + 1;
-                }
-                groups.add(i + 1);
+              }
+              lnks[j][k] = i + 1;
+              lnks[k][j] = i + 1;
+              graph.nodes[j].groups.add(i + 1);
+              graph.nodes[k].groups.add(i + 1);
+              if (graph.nodes[j].loading < element1) {
+                graph.nodes[j].loading = element1;
+                graph.nodes[j].group = i + 1;
+              }
+              if (graph.nodes[k].loading < element2) {
+                graph.nodes[k].loading = element2;
+                graph.nodes[k].group = i + 1;
+              }
+              groups.add(i + 1);
             }
           }
         }
@@ -335,13 +244,13 @@ export default {
         let domain = Array.from(groups);
         this.color = d3.scaleOrdinal(faviscolorscheme);
         this.color.domain(domain);
-        domainlables[0] = "Does not belong to any factor";
+        domainlables[0] = "N/A";
         for (let i = 1; i < domain.length; ++i) {
           domainlables[domain[i]] = this.ds.row_names[domain[i] - 1];
         }
         this.$refs.legend.innerHTML = "";
         this.$refs.legend.appendChild(
-          Swatches(this.color, {columns: "180px", domainlables: domainlables}));
+          Swatches(this.color, { columns: "180px", domainlables: domainlables }));
       } else {
         let ngroup = 0;
         graph.nodes.forEach((element, i) => {
@@ -356,10 +265,10 @@ export default {
           domainlables[domain[i]] = `${domain[i]}`;
         }
         if (domain[0] == 0)
-          domainlables[0] = "Does not belong to any factor"
+          domainlables[0] = "N/A"
         this.$refs.legend.innerHTML = "";
         this.$refs.legend.appendChild(
-          Swatches(this.color, {columns: "180px", domainlables: domainlables}));
+          Swatches(this.color, { columns: "180px", domainlables: domainlables }));
       }
 
       let links = d3.select(this.$refs.links);
@@ -368,26 +277,25 @@ export default {
 
       svg
         .on("click", () => {
-          this.clicked = {};
-          this.$emit('clicked', this.clicked);
-          this.selection = {
-            var: null,
-            factor: null
-          };
-          this.$emit('selectionChanged', this.selection);
+          const clicked = {};
+          this.$store.commit("updateClicked", clicked);
+          this.$store.commit("updateHover", {
+            var: undefined,
+            factor: undefined
+          });
         })
         .attr("pointer-events", "all").call(d3
-        .drag()
-        .on("start", () => {
-          svg.style("cursor", "grabbing");
-        })
-        .on("drag", (event) => {
-          this.x -= event.dx/this.scale;
-          this.y -= event.dy/this.scale;
-        })
-        .on("end", function() {
-          svg.style("cursor", null);
-        }));
+          .drag()
+          .on("start", () => {
+            svg.style("cursor", "grabbing");
+          })
+          .on("drag", (event) => {
+            this.x -= event.dx / this.scale;
+            this.y -= event.dy / this.scale;
+          })
+          .on("end", function () {
+            svg.style("cursor", null);
+          }));
 
       const old = new Map(
         nodes
@@ -401,49 +309,62 @@ export default {
       graph.links = graph.links.map((d) => Object.assign({}, d));
 
       let node = nodes.selectAll("circle").data(graph.nodes, (d) => d.id);
-      let nodestyle = node => {
+      const nodestyle = node => {
         node
-          .attr("r", d => typeof this.clicked.var == "number" && this.clicked.var == d.i ? 7 : 5)
+          .attr("r", d => this.varCond(d.i) == this.MEvent.Clicked ? 7 : 5)
           .attr("stroke", (d) => {
-            return typeof this.clicked.var == "number" && (this.clicked.var == d.i || lnks[graph.nodedict[this.clicked.var]][graph.nodedict[d.i]]) ? "black" : "transparent";
+            const cond = this.varCond(d.i);
+            if (typeof this.clicked.var == "number")
+              return (cond == this.MEvent.Clicked || lnks[graph.nodedict[this.clicked.var]][graph.nodedict[d.i]]) ? "black" : "transparent";
+            return (cond == this.MEvent.Selected || cond == this.MEvent.Hovered) ? "black" : "transparent";
           })
           .attr("stroke-opacity", 1)
           .attr("opacity", (d) => {
-            if (typeof this.clicked.var == "number" && (this.clicked.var == d.i || lnks[graph.nodedict[this.clicked.var]][graph.nodedict[d.i]])) return 1;
+            const cond = this.varCond(d.i);
+            if (typeof this.clicked.var == "number" && (cond == this.MEvent.Clicked || lnks[graph.nodedict[this.clicked.var]][graph.nodedict[d.i]])) return 1;
+            if (cond == this.MEvent.Selected || cond == this.MEvent.Hovered) return 1;
             if (d.group == 0) return this.opacityisolated;
             if (typeof this.clicked.var == "number") return 0.5;
             return 1;
           })
-          .attr("fill",  (d) => this.node_color == "Factor with Biggest Loading" ? this.color(d.group) : this.color(d.ngroup));
+          .attr("fill", (d) => this.node_color == "Factor with Biggest Loading" ? this.color(d.group) : this.color(d.ngroup));
         return node;
       };
-      
+
       node
         .enter()
         .append("circle")
         .call(nodestyle)
         .on("click", (e, d) => {
-          this.clicked = {
+          const clicked = {
             var: d.i,
             factor: null,
             sort: null
           };
-          this.$emit('clicked', this.clicked);
+          this.$store.commit("updateClicked", clicked);
           e.stopPropagation();
         })
         .on("mouseover", (event, d) => {
-          this.selection.var = d.i;
-          this.$emit('selectionChanged', this.selection);
-          this.tooltip.mouseover(event)
+          this.$store.commit("updateHover", {
+            var: d.i,
+            factor: undefined
+          });
+          this.tooltip.mouseover(event);
         })
-        .on("mousemove", (event, d) =>{
+        .on("mousemove", (event, d) => {
           this.tooltip.mousemove(event, {
             var: d.id,
-            factor: Array.from(d.groups).map(x=>this.ds.row_names[x-1]).join(', '),
+            factor: Array.from(d.groups).map(x => this.ds.row_names[x - 1]).join(', '),
             codebook: this.ds.codebook ? this.ds.codebook[d.id] : null
           })
         })
-        .on("mouseleave", (event) => this.tooltip.mouseleave(event))
+        .on("mouseleave", (event, d) => {
+          this.$store.commit("updateHover", {
+            var: undefined,
+            factor: undefined
+          });
+          this.tooltip.mouseleave(event);
+        })
         .call(drag(this.simulation));
       node
         .call(nodestyle)
@@ -473,24 +394,32 @@ export default {
         .append("line")
         .call(linkstyle)
         .on("click", (e, d) => {
-          this.clicked = {
+          const clicked = {
             var: null,
-            factor: d.group-1,
+            factor: d.group - 1,
             sort: null
           };
-          this.$emit('clicked', this.clicked);
+          this.$store.commit("updateClicked", clicked);
           e.stopPropagation();
         })
         .on("mouseover", (event, d) => {
-          this.selection.factor = d.group-1;
-          this.$emit('selectionChanged', this.selection);
+          this.$store.commit("updateHover", {
+            var: undefined,
+            factor: d.group - 1
+          });
           this.tooltip.mouseover(event);
         })
         .on("mousemove", (event, d) => this.tooltip.mousemove(event, {
-            var: `${d.source.id} ${d.target.id}`,
-            factor: this.ds.row_names[d.group-1]
+          var: `${d.source.id} ${d.target.id}`,
+          factor: this.ds.row_names[d.group - 1]
         }))
-        .on("mouseleave", (event) => this.tooltip.mouseleave(event));
+        .on("mouseleave", (event, d) => {
+          this.$store.commit("updateHover", {
+            var: undefined,
+            factor: undefined
+          });
+          this.tooltip.mouseleave(event);
+        });
       link
         .call(linkstyle);
       link.exit().remove();
@@ -530,12 +459,121 @@ export default {
     },
   },
   created() {
-      window.addEventListener('resize', this.resizeHandler);
+    window.addEventListener('resize', this.resizeHandler);
   },
   destroyed() {
-      window.removeEventListener('resize', this.resizeHandler);
+    window.removeEventListener('resize', this.resizeHandler);
   },
   mounted() {
+    this.simulation = d3
+      .forceSimulation()
+      .force(
+        "link",
+        d3.forceLink().id(function (d) {
+          return d.id;
+        })
+      )
+      .force("charge", d3.forceManyBody())
+      .force("x", d3.forceX())
+      .force("y", d3.forceY())
+      .on("tick", () => {
+        let links = d3.select(this.$refs.links);
+        let nodes = d3.select(this.$refs.nodes);
+        let hull = d3.select(this.$refs.hulls);
+        links
+          .selectAll("line")
+          .attr("x1", (d) => d.source.x)
+          .attr("y1", (d) => d.source.y)
+          .attr("x2", (d) => d.target.x)
+          .attr("y2", (d) => d.target.y);
+        nodes
+          .selectAll("circle")
+          .attr("cx", (d) => d.x)
+          .attr("cy", (d) => d.y);
+        if (this.displayHull) {
+          let dat = nodes.selectAll("circle").data();
+          let domain = this.color.domain();
+          let points = {};
+          domain.forEach((num) => points[num] = []);
+          for (let i = 0; i < dat.length; i++) {
+            const point = dat[i];
+            point.groups.forEach(num => {
+              points[num].push([point.x, point.y]);
+            });
+          }
+          points = Object.values(points);
+          let pol = points.map(v => d3.polygonHull(v));
+          for (let i = 0; i < pol.length; i++) {
+            if (pol[i]) {
+              pol[i]["factor"] = domain[i];
+              pol[i]["name"] = (domain[i] ? this.ds.row_names[domain[i] - 1] : "None");
+            }
+          }
+          pol = pol.filter(v => v && v.length > 2);
+          let hulls = hull.selectAll("path").data(pol);
+          hulls
+            .enter()
+            .append("path")
+            .attr("d", function (d) {
+              if (d.length) {
+                return "M" + d.join("L") + "Z";
+              } else {
+                return null;
+              }
+            })
+            .attr("fill", (d, i) => this.color(d["factor"]))
+            .attr("stroke", (d, i) => this.color(d["factor"]))
+            .attr("stroke-width", "2px")
+            .attr("stroke-linejoin", "round")
+            .attr("stroke-opacity", 0.3)
+            .attr("opacity", 0.3)
+            .on("click", (e, d) => {
+              const clicked = {
+                var: null,
+                factor: d["factor"] - 1,
+                sort: null
+              };
+              this.$store.commit("updateClicked", clicked);
+              e.stopPropagation();
+            })
+            .on("mouseover", (event, d) => {
+              this.$store.commit("updateHover", {
+                var: undefined,
+                factor: d["factor"] - 1
+              });
+              this.tooltip.mouseover(event);
+              event.stopPropagation();
+            })
+            .on("mousemove", (event, d) => {
+              this.tooltip.mousemove(event, {
+                var: "",
+                factor: d["name"]
+              })
+            })
+            .on("mouseleave", (event, d) => {
+              this.$store.commit("updateHover", {
+                var: undefined,
+                factor: undefined
+              });
+              this.tooltip.mouseleave(event)
+            })
+            ;
+          hulls
+            .attr("d", function (d) {
+              if (d.length) {
+                return "M" + d.join("L") + "Z";
+              } else {
+                return null;
+              }
+            })
+            .attr("fill", (d, i) => this.color(d["factor"]))
+            .attr("stroke", (d, i) => this.color(d["factor"]));
+          hulls.exit().remove();
+        } else {
+          let hulls = hull.selectAll("path").data([]);
+          hulls.exit().remove();
+        }
+      });
     this.tooltip = new Tooltip(this.$refs.tooltip);
     // this.updateGraph(); Through updated in CommonControls
     this.resizeObserver = new ResizeObserver(this.resizeHandler);

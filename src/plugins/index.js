@@ -18,23 +18,69 @@ const store = createStore({
     return {
       currentds: 0,
       dss: [],
-      tabs: [new Tab("Getting Started", "test", Tab.Types.HOME)],
-      tabWindowHeight: 0,
+      order: [],
+      rorder: [],
+      hover: {
+        var: undefined,
+        factor: undefined
+      },
+      selection: {
+        var: new Set(),
+        factor: new Set()
+      },
+      clicked: {
+        var: null,
+        factor: null,
+        sort: null
+      },
+      filtered: {
+        var: null,
+        factor: null
+      }
+    }
+  },
+  getters: {
+    getHover(state) {
+      return state.hover;
+    },
+    getSelection(state) {
+      return state.selection;
+    },
+    getClicked(state) {
+      return state.clicked;
+    },
+    getOrder(state) {
+      return state.order;
+    },
+    getROrder(state) {
+      return state.rorder;
+    },
+    getFiltered(state) {
+      return state.filtered;
     }
   },
   mutations: {
-    updateWindowHeight (state, height) {
-      state.tabWindowHeight = height;
-    },
     addDS (state, ds) {
       state.dss.push(ds);
     },
-    appendTab (state, type) {
-      state.tabs.push(new Tab(type.toUpperCase(), state.dss.slice(-1)[0], type));
+    updateHover (state, hover) {
+      state.hover = hover;
     },
-    deleteTab (state, index) {
-      state.tabs.splice(index, 1);
+    updateSelection (state, selection) {
+      state.selection = selection;
     },
+    updateClicked (state, clicked) {
+      state.clicked = clicked;
+    },
+    updateOrder (state, order) {
+      state.order = order;
+    },
+    updateROrder (state, rorder) {
+      state.rorder = rorder;
+    },
+    updateFiltered (state, filtered) {
+      state.filtered = filtered;
+    }
   }
 })
 

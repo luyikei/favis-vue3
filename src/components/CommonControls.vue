@@ -8,22 +8,6 @@
           hide-details="auto"
           class="pb-3 pt-3"
     ></v-text-field>
-    <v-row no-gutters>
-    <v-col md="4">
-        Variable: 
-    </v-col>
-    <v-col md="8">
-        {{ ds.names[commonProps.selectedVar] }}
-    </v-col>
-    </v-row>
-    <v-row no-gutters>
-    <v-col md="4">
-        Factor:
-    </v-col>
-    <v-col md="8">
-        {{ ds.row_names[commonProps.selectedFactor] }}
-    </v-col>
-    </v-row>
   </v-card-text>
     <v-card-title>Threshold</v-card-title>
     <v-card-text fluid>
@@ -55,14 +39,10 @@
 import * as d3 from "d3";
 
 export default {
-  props: ["ds", "selection", "clicked"],
+  props: ["ds"],
   data() {
     return {
       commonProps: {
-        clickedVar: null,
-        clickedFactor: null,
-        selectedVar: null,
-        selectedFactor: null,
         searchText: "",
         thres: 1
       },
@@ -89,22 +69,7 @@ export default {
         this.$emit('updated', this.commonProps);
       },
       deep: true
-    },
-    selection: {
-      handler(selection){
-        this.commonProps.selectedVar = selection.var;
-        this.commonProps.selectedFactor = selection.factor;
-      },
-      deep: true
-    },
-    clicked: {
-      handler(clicked){
-        this.commonProps.clickedVar = clicked.var;
-        this.commonProps.clickedFactor = clicked.factor;
-        this.commonProps.clickedSort = clicked.sort;
-      },
-      deep: true
-    },
+    }
   },
   methods: {
     updateCDFGraph() {

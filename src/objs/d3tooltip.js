@@ -33,6 +33,12 @@ export class Tooltip {
         .style("position", "fixed")
         .style("left", `${x + 7}px`)
         .style("top", `${y + 7}px`);
+    else if (d.factor == null)
+      this.tip
+        .html(d.codebook ? `Variable: ${d.var}<br>${Tooltip.formatCodebook(d.codebook)}` : `Variable: ${d.var}`)
+        .style("position", "fixed")
+        .style("left", `${x + 7}px`)
+        .style("top", `${y + 7}px`);
     else
       this.tip
         .html(!d.codebook ? `Variable: ${d.var}<br>Factor: ${d.factor}` : `Variable: ${d.var}<br>Factor: ${d.factor} <br><br>${Tooltip.formatCodebook(d.codebook)}`)
