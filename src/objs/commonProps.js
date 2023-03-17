@@ -11,10 +11,16 @@ export function useCommonProps() {
 
   const store = useStore()
   const order  = computed(() => store.getters.getOrder);
-  const rorder  = computed(() => store.getters.getROrder);
   const hover  = computed(() => store.getters.getHover);
   const selection  = computed(() => store.getters.getSelection);
   const clicked  = computed(() => store.getters.getClicked);
+  const dropIndices  = computed(() => store.getters.getDropIndices);
+  //const filteredOrder  = computed(() => {
+  //  return {
+  //    var: order.value.var.filter(d => dropIndices.value.var.indexOf(d) == -1),
+  //    factor: order.value.factor.filter(d => dropIndices.value.factor.indexOf(d) == -1)
+  //  };
+  //});
 
   const varCond = i => {
     if (typeof clicked.value.var == "number" && clicked.value.var == i) return MEvent.Clicked;
@@ -30,6 +36,8 @@ export function useCommonProps() {
     return MEvent.None;
   };
 
+  const filterOrder = (ord, dind) => ord.filter(x => dind.indexOf(x) == -1);
 
-  return { MEvent, order, rorder, hover, selection, clicked, varCond, factorCond }
+
+  return { MEvent, order, hover, selection, clicked, dropIndices, filterOrder, varCond, factorCond }
 }

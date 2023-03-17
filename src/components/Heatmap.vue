@@ -26,7 +26,7 @@ export default {
   props: ["ds", "heatmapProps", "commonProps"],
   emits: ['clicked', 'selectionChanged'],
   data() {
-    const { selection, clicked, hover, MEvent, varCond, factorCond } = useCommonProps();
+    const { selection, clicked, hover, dropIndices, MEvent, varCond, factorCond } = useCommonProps();
     return {
       margin: { top: 150, right: 20, bottom: 40, left: 70 },
       height: 300,
@@ -42,7 +42,6 @@ export default {
 
       // Current ds
       absDS: null,
-      cds: {},
 
       thres: 0,
 
@@ -59,6 +58,7 @@ export default {
       selection,
       clicked,
       hover,
+      dropIndices,
       MEvent,
       varCond,
       factorCond,
@@ -69,8 +69,6 @@ export default {
       rorder: [],
       rorder_i: 0,
       matrix: [],
-
-      searchText: "",
 
       legend: null,
       tooltip: null,
@@ -107,20 +105,21 @@ export default {
     order_i: function (v) {
       this.order = this.cds.orders[v];
       //this.rorder = this.cds.rsimorders[v];
-      this.$store.commit("updateOrder", this.order);
-      this.filterd(this.searchText);
+      this.$store.commit("updateOrder", {
+        var: !this.isT ? this.order : this.rorder,
+        factor: !this.isT ? this.rorder : this.order
+      });
+      this.filterd(this.dropIndices);
       this.updateGraph();
     },
     rorder_i: function (v) {
       this.rorder = this.cds.rorders[v];
       //this.order = this.cds.simorders[v];
-      this.$store.commit("updateROrder", this.rorder);
-      this.filterd(this.searchText);
-      this.updateGraph();
-    },
-    searchText: function () {
-      this.order = this.cds.orders[this.order_i];
-      this.filterd(this.searchText);
+      this.$store.commit("updateOrder", {
+        var: !this.isT ? this.order : this.rorder,
+        factor: !this.isT ? this.rorder : this.order
+      });
+      this.filterd(this.dropIndices);
       this.updateGraph();
     },
     clicked: {
@@ -149,6 +148,13 @@ export default {
       },
       deep: true
     },
+    dropIndices: {
+      handler(dropIndices) {
+        this.filterd(this.dropIndices);
+        this.updateGraph();
+      },
+      deep: true
+    },
     heatmapProps: {
       handler(heatmapProps) {
         this.resetSortingCount = heatmapProps.resetSorting;
@@ -165,9 +171,7 @@ export default {
     },
     commonProps: {
       handler(commonProps) {
-        this.searchText = commonProps.searchText;
         this.thres = commonProps.thres;
-
         if (this.legend) this.legend.threshold(this.isThresholded ? this.thres : -1);
         this.updateGraph();
       },
@@ -206,11 +210,13 @@ export default {
     },
 
     filterd(val) {
-      if (val) {
-        this.order = this.order.filter(d => this.cds.names[d].startsWith(val));
-        this.matrix = this.cds.matrix.map(row => (val ? row.filter(d => this.cds.names[d.x].startsWith(val)) : row));
+      if (val.var.length || val.factor.length) {
+        this.order = this.cds.orders[this.order_i].filter(d => val.var.indexOf(d) == -1);
+        this.rorder = this.cds.rorders[this.rorder_i].filter(d => val.factor.indexOf(d) == -1);
+        this.matrix = this.cds.matrix.filter(d => val.factor.indexOf(d.y) == -1).map(row => (row.filter(d => val.var.indexOf(d.x) == -1)));
       } else {
-        this.order = this.order;
+        this.order = this.cds.orders[this.order_i];
+        this.rorder = this.cds.rorders[this.rorder_i];
         this.matrix = this.cds.matrix;
       }
     },

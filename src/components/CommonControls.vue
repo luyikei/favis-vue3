@@ -3,7 +3,7 @@
     <v-card-title>Filtering</v-card-title>
     <v-card-text fluid>
     <v-text-field
-    v-model="commonProps.searchText"
+    v-model="searchText"
       label="Search"
           hide-details="auto"
           class="pb-3 pt-3"
@@ -38,14 +38,17 @@
 <script>
 import * as d3 from "d3";
 
+
+// import { useCommonProps } from '@/objs/commonProps.js'
+
 export default {
   props: ["ds"],
   data() {
     return {
       commonProps: {
-        searchText: "",
         thres: 1
       },
+      searchText: "",
       thres_max: 1,
       cdfData: [],
       cdfProps: {
@@ -69,6 +72,13 @@ export default {
         this.$emit('updated', this.commonProps);
       },
       deep: true
+    },
+    searchText() {
+      this.$store.commit("updateDropIndices", {
+          var: d3.range(this.ds.names.length).filter(d => !this.ds.names[d].startsWith(this.searchText)),
+          factor: []
+        }
+      );
     }
   },
   methods: {

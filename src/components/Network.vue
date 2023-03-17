@@ -46,7 +46,7 @@ import { useCommonProps } from '@/objs/commonProps.js'
 export default {
   props: ["ds", "networkProps", "commonProps"],
   data() {
-    const { selection, clicked, hover, varCond, factorCond, MEvent } = useCommonProps();
+    const { selection, clicked, hover, dropIndices, varCond, factorCond, MEvent } = useCommonProps();
     return {
       width: 0,
       height: 0,
@@ -60,10 +60,10 @@ export default {
       opacityisolated: 0.1,
       thres: 0.4,
       displayHull: true,
-      searchText: "",
       selection,
       clicked,
       hover,
+      dropIndices,
       varCond,
       factorCond,
       MEvent,
@@ -89,9 +89,6 @@ export default {
       this.updateGraph();
     },
     thres: function () {
-      this.updateGraph();
-    },
-    searchText() {
       this.updateGraph();
     },
     ds: function () {
@@ -123,6 +120,12 @@ export default {
       deep: true
     },
     hover: {
+      handler(hover) {
+        this.updateGraph();
+      },
+      deep: true
+    },
+    dropIndices: {
       handler(hover) {
         this.updateGraph();
       },
@@ -181,7 +184,7 @@ export default {
       graph["links"] = [];
       graph.nodedict = {};
       this.ds.names.forEach((element, i) => {
-        if (!this.searchText || (this.searchText && element.startsWith(this.searchText))) {
+        if (!this.dropIndices.var.length || this.dropIndices.var.indexOf(i) == -1) {
           graph.nodedict[i] = graph.nodes.length;
           graph["nodes"].push({
             i: i,

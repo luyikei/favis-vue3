@@ -18,8 +18,10 @@ const store = createStore({
     return {
       currentds: 0,
       dss: [],
-      order: [],
-      rorder: [],
+      order: {
+        var: undefined,
+        factor: undefined
+      },
       hover: {
         var: undefined,
         factor: undefined
@@ -33,9 +35,9 @@ const store = createStore({
         factor: null,
         sort: null
       },
-      filtered: {
-        var: null,
-        factor: null
+      dropIndices: {
+        var: [],
+        factor: []
       }
     }
   },
@@ -52,11 +54,8 @@ const store = createStore({
     getOrder(state) {
       return state.order;
     },
-    getROrder(state) {
-      return state.rorder;
-    },
-    getFiltered(state) {
-      return state.filtered;
+    getDropIndices(state) {
+      return state.dropIndices;
     }
   },
   mutations: {
@@ -75,11 +74,8 @@ const store = createStore({
     updateOrder (state, order) {
       state.order = order;
     },
-    updateROrder (state, rorder) {
-      state.rorder = rorder;
-    },
-    updateFiltered (state, filtered) {
-      state.filtered = filtered;
+    updateDropIndices (state, dropIndices) {
+      state.dropIndices = dropIndices;
     }
   }
 })

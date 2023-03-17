@@ -30,7 +30,7 @@ export default {
   props: ["ds", "commonProps", "factorAxis", "isFactor"],
   emits: ['clicked', 'selectionChanged'],
   data() {
-    const { clicked, selection, rorder, order } = useCommonProps();
+    const { clicked, selection, dropIndices, order, filterOrder } = useCommonProps();
     return {
       width: 0,
       height: 0,
@@ -39,7 +39,8 @@ export default {
       selection: selection,
       clicked: clicked,
       order: order,
-      rorder: rorder,
+      dropIndices,
+      filterOrder,
       cScale: faviscolorscale,
     };
   },
@@ -58,24 +59,20 @@ export default {
     },
   },
   watch: {
-    selection: {
-      handler(selection) {
-        this.d3PC.onSelected(this.selection);
-      },
-      deep: true
+    selection() {
+      this.d3PC.onSelected(this.selection);
     },
-    clicked: {
-      handler(clicked) {
-        this.d3PC.onClicked(this.clicked);
-      },
-      deep: true
+    clicked() {
+      this.d3PC.onClicked(this.clicked);
+    },
+    dropIndices() {
+      if (this.isFactor) this.d3PC.updateFilter(this.dropIndices.var);
+      else this.d3PC.updateFilter(this.dropIndices.factor);
     },
     order() {
-      if (this.isFactor) this.d3PC.updateOrder(this.order);
+      if (this.isFactor) this.d3PC.updateOrder(this.order.var);
+      else this.d3PC.updateOrder(this.order.factor);
     },
-    rorder() {
-      if (!this.isFactor) this.d3PC.updateOrder(this.rorder);
-    }
   },
   created() {
     window.addEventListener('resize', this.resizeHandler);

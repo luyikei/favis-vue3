@@ -127,6 +127,7 @@ export class ParallelCoordinatesD3 {
           let opacity = 0;
           if (naxis < 21) opacity = 1;
           else if (i % Math.ceil(naxis / 5) == 0) opacity = 1;
+          elem.selectAll(".tick").selectAll("line").attr("x1", -6);
           elem.attr("opacity", opacity);
           elem
             .on("mouseover", (event, d) => {
@@ -191,21 +192,25 @@ export class ParallelCoordinatesD3 {
   update() {
     const that = this;
     this.x = d3.scalePoint(this.orderedKeys, [this.margin.left, this.width - this.margin.right]);
-    this.y = this.commonScale ? new Map(Array.from(this.orderedKeys, key => [key, d3.scaleLinear([this.abs ? 0 : -1 , 1], [this.height - this.margin.bottom, this.margin.top])])) : new Map(Array.from(this.keys, key => [key, d3.scaleLinear(d3.extent(this.data, d => d[key]), [this.margin.top, this.height - this.margin.bottom])]));
+    this.y = this.commonScale ? new Map(Array.from(this.orderedKeys, key => [key, d3.scaleLinear([this.abs ? 0 : -1 , 1], [this.height - this.margin.bottom, this.margin.top])])) : new Map(Array.from(this.orderedKeys, key => [key, d3.scaleLinear(d3.extent(this.data, d => d[key]), [this.margin.top, this.height - this.margin.bottom])]));
     this.brush.extent([
       [-(this.brushWidth / 2), this.margin.top],
       [this.brushWidth / 2, Math.max(this.margin.top, this.height - this.margin.bottom)]
     ]);
     
+    const naxis = this.orderedKeys.length;
     this.axisg.join("g")
         .each(function(d, i) { 
           const axis = d3.axisRight(that.y.get(d));
-          if (that.onlyFirstAxis && i > 0) {
-            axis.tickFormat(() => "");
-          };
-          const axisElem = d3.select(this).call(axis);
-          axisElem.selectAll(".tick").selectAll("line").attr("x1", -6);
-          return axisElem; 
+          //if (onlyFirstAxis && i > 0) {
+          //  axis.tickFormat(() => "");
+          //};
+          let elem = d3.select(this).call(axis);
+          let opacity = 0;
+          if (naxis < 21) opacity = 1;
+          else if (that.order.indexOf(i) % Math.ceil(naxis / 5) == 0) opacity = 1;
+          elem.attr("opacity", opacity);
+          return elem;
         })
         .attr("transform", d => `translate(${this.x(d)}, 0)`)
         .call(this.brush);
@@ -228,6 +233,11 @@ export class ParallelCoordinatesD3 {
     const that = this;
     this.order = order;
     this.orderedKeys = order.map(i => this.keys[i]);
+    this.update();
+  }
+  updateFilter(dropIndices) {
+    const that = this;
+    this.orderedKeys = this.order.filter(i => dropIndices.indexOf(i) == -1).map(i => this.keys[i]);
     this.update();
   }
 }

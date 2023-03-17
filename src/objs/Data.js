@@ -48,7 +48,7 @@ export class Data {
       const svalues = range(n).map(x => math.norm(math.subtract(math.abs(rawmat[x]), math.abs(rawmat[i]))));
       rsimorders.push(range(n).sort((a, b) => svalues[a] - svalues[b] ));
     });
-
+    
     let rawmatt = math.transpose(rawmat);
     names.forEach((d, i) => {
       rorders.push(range(rawmat.length).sort((a, b) => matrix[b][i].z - matrix[a][i].z));
