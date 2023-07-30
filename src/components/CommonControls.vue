@@ -8,6 +8,34 @@
           hide-details="auto"
           class="pb-3 pt-3"
     ></v-text-field>
+    <v-checkbox label="Limit Number of Variables"
+    v-model="limitVar" hide-details></v-checkbox>
+    <v-slider
+      v-model.number="numVar"
+      class="align-center"
+      step="1"
+      max="20"
+      min="1"
+      thumb-size="12"
+      thumb-label
+      hide-details
+      :disabled="!limitVar"
+    >
+    </v-slider>
+    <v-checkbox label="Limit Number of Factors"
+    v-model="limitFactor" hide-details></v-checkbox>
+    <v-slider
+      v-model.number="numFactor"
+      class="align-center"
+      step="1"
+      max="20"
+      min="1"
+      thumb-size="12"
+      thumb-label
+      hide-details
+      :disabled="!limitFactor"
+    >
+    </v-slider>
   </v-card-text>
     <v-card-title>Threshold</v-card-title>
     <v-card-text fluid>
@@ -50,6 +78,10 @@ export default {
       },
       searchText: "",
       thres_max: 1,
+      limitVar: false,
+      numVar: 10,
+      limitFactor: false,
+      numFactor: 10,
       cdfData: [],
       cdfProps: {
           width:  170,
@@ -79,9 +111,28 @@ export default {
           factor: []
         }
       );
+    },
+    limitVar() {
+      this.updateNLimit();
+    },
+    numVar() {
+      this.updateNLimit();
+    },
+    limitFactor() {
+      this.updateNLimit();
+    },
+    numFactor() {
+      this.updateNLimit();
     }
   },
   methods: {
+    updateNLimit() {
+      this.$store.commit("updateNLimit", {
+          var: this.limitVar ? this.numVar : undefined,
+          factor: this.limitFactor ? this.numFactor : undefined,
+        }
+      );
+    },
     updateCDFGraph() {
       let svg = d3.select(this.$refs.svgcdffield);
       let height = this.cdfProps.height;

@@ -14,7 +14,8 @@ export class ParallelCoordinatesD3 {
     isFactor=true,
     commonScale=true,
     onlyFirstAxis=true,
-    margin = ({top: 50, right: 20, bottom: 30, left: 10}),
+    max = 1,
+    margin = ({top: 50, right: 30, bottom: 30, left: 10}),
     brushWidth = 15,
     deselectedColor = "#eee",
     selectionChangedCb = (selected) => {},
@@ -36,6 +37,7 @@ export class ParallelCoordinatesD3 {
     this.fnames = fnames;
     this.deselectedColor = deselectedColor;
     this.selectionChangedCb = selectionChangedCb;
+    this.max = max;
 
     if (abs) {
       for (let i = 0; i < this.data.length; ++i) {
@@ -45,18 +47,21 @@ export class ParallelCoordinatesD3 {
       } 
     }
 
-    const keyz = 'F1';
     this.x = d3.scalePoint(this.keys, [margin.left, width - margin.right]);
     //const y = new Map(Array.from(keys, key => [key, d3.scaleLinear(d3.extent(data, d => d[key]), [margin.top, height - margin.bottom])]));
-    this.y = commonScale ? new Map(Array.from(this.keys, key => [key, d3.scaleLinear([abs ? 0 : -1 , 1], [height - margin.bottom, margin.top])])) : new Map(Array.from(this.keys, key => [key, d3.scaleLinear(d3.extent(data, d => d[key]), [margin.top, height - margin.bottom])]));
+    this.y = commonScale ? new Map(Array.from(this.keys, key => [key, d3.scaleLinear([abs ? 0 : -this.max , this.max], [height - margin.bottom, margin.top])])) : new Map(Array.from(this.keys, key => [key, d3.scaleLinear(d3.extent(data, d => d[key]), [margin.top, height - margin.bottom])]));
     //const z = d3.scaleSequential(y.get(keyz).domain().reverse(), colors);
+
+    this.fScale = d3.scaleOrdinal(faviscolorscheme);
+    this.fScale.domain(d3.range(0, data.length));
     if (this.isFactor) {
-      this.z = d3.scaleOrdinal(faviscolorscheme);
-      this.z.domain(d3.range(0, data.length));
+      this.z = this.fScale;
     } else {
       this.z = d3.scaleOrdinal(["#AAA"]);
       this.z.domain(d3.range(0, data.length));
     }
+
+
     this.line = d3.line()
       .defined(([, value]) => value != null)
       .y(([key, value]) => this.y.get(key)(value))
@@ -112,55 +117,86 @@ export class ParallelCoordinatesD3 {
           this.selectionChangedCb(selected.map(x => this.isFactor ? this.fnames.indexOf(x.Factor) : this.vnames.indexOf(x.Variable)));
         });
 
-    const naxis = this.orderedKeys.length;
-    this.axisg = svg.append("g")
-      .selectAll("g")
-      .data(this.keys)
-      .join("g")
-        .attr("transform", d => `translate(${this.x(d)}, 0)`)
-        .each(function(d, i) { 
-          const axis = d3.axisRight(that.y.get(d));
-          //if (onlyFirstAxis && i > 0) {
-          //  axis.tickFormat(() => "");
-          //};
-          let elem = d3.select(this).call(axis);
-          let opacity = 0;
-          if (naxis < 21) opacity = 1;
-          else if (i % Math.ceil(naxis / 5) == 0) opacity = 1;
-          elem.selectAll(".tick").selectAll("line").attr("x1", -6);
-          elem.attr("opacity", opacity);
-          elem
-            .on("mouseover", (event, d) => {
-              elem.attr("opacity", 0.7);
-            })
-            .on("mouseleave", (event, d) => {
-              if (!that.selected.has(d)) elem.attr("opacity", opacity);
-            });
-          return elem;
-        })
-        .call(g => g.append("text")
-          .attr("x", 0)
-          .attr("y", margin.top - 15)
-          .attr("text-anchor", "start")
-          .attr("fill", "currentColor")
-          .attr("font-size", "10")
-          .attr("font-family", "sans-serif")
-          .text(d => d))
-        .call(g => g.selectAll("text")
-          .clone(true).lower()
-          .attr("fill", "none")
-          .attr("stroke-width", 5)
-          .attr("stroke-linejoin", "round")
-          .attr("stroke", "white"))
-        .call(this.brush);
+    this.axisg = svg.append("g");
+    this.updateAxis();
   }
   clear() {
-    this.brush.clear(this.axisg);
-    this.axisg.join("g").each(function(d, i) { 
-      let elem = d3.select(this); 
-      elem.attr("opacity", 0);
-      return elem;
-    });
+    this.brush.clear(this.axisg.selectAll(".axisg"));
+    this.updateAxis();
+  }
+  updateAxis() {
+    const that = this;
+    const naxis = this.orderedKeys.length;
+    this.axisg
+        .selectAll(".axisg")
+        .data(this.orderedKeys, d => d)
+        .join(
+          enter => enter.append("g")
+            .attr("class", "axisg")
+            .attr("transform", d => `translate(${this.x(d)}, 0)`)
+            .each(function(d, i) { 
+              const axis = d3.axisRight(that.y.get(d));
+              //if (onlyFirstAxis && i > 0) {
+              //  axis.tickFormat(() => "");
+              //};
+              let elem = d3.select(this).call(axis);
+              let opacity = 0;
+              if (naxis < 21) opacity = 1;
+              else if (i % Math.ceil(naxis / 5) == 0) opacity = 1;
+              elem.selectAll(".tick").selectAll("line").attr("x1", -6);
+              elem.attr("opacity", opacity);
+              elem
+                .on("mouseover", (event, d) => {
+                  elem.attr("opacity", 0.7);
+                })
+                .on("mouseleave", (event, d) => {
+                  if (!that.selected.has(d)) elem.attr("opacity", opacity);
+                });
+              return elem;
+            })
+            .call(g => g.append("text")
+              .attr("class", "axistitle")
+              .attr("x", 0)
+              .attr("y", this.margin.top - 15)
+              .attr("text-anchor", "start")
+              .attr("fill", (d, i) => this.isFactor ? "currentColor" : this.fScale(i+1))
+              .attr("font-size", "10")
+              .attr("font-family", "sans-serif")
+              .text(d => d))
+            .call(g => g.selectAll("text")
+              .clone(true).lower()
+              .attr("fill", "none")
+              .attr("stroke-width", 5)
+              .attr("stroke-linejoin", "round")
+              .attr("stroke", "white"))
+            .call(this.brush),
+          update => update
+            .attr("transform", d => `translate(${this.x(d)}, 0)`)
+            .each(function(d, i) { 
+              const axis = d3.axisRight(that.y.get(d));
+              //if (onlyFirstAxis && i > 0) {
+              //  axis.tickFormat(() => "");
+              //};
+              let elem = d3.select(this).call(axis);
+              let opacity = 0;
+              if (naxis < 21) opacity = 1;
+              else if (i % Math.ceil(naxis / 5) == 0) opacity = 1;
+              elem.selectAll(".tick").selectAll("line").attr("x1", -6);
+              elem.attr("opacity", opacity);
+              elem
+                .on("mouseover", (event, d) => {
+                  elem.attr("opacity", 0.7);
+                })
+                .on("mouseleave", (event, d) => {
+                  if (!that.selected.has(d)) elem.attr("opacity", opacity);
+                });
+              return elem;
+            })
+            .call(g => g.selectAll(".axistitle").text(d => d))
+            .call(this.brush),
+          exit => exit.remove()
+        );
+
   }
   onSelected(selected) {
     //if (!selected.var.size && !selected.factor.size) {
@@ -190,33 +226,17 @@ export class ParallelCoordinatesD3 {
     });
   }
   update() {
-    const that = this;
     this.x = d3.scalePoint(this.orderedKeys, [this.margin.left, this.width - this.margin.right]);
-    this.y = this.commonScale ? new Map(Array.from(this.orderedKeys, key => [key, d3.scaleLinear([this.abs ? 0 : -1 , 1], [this.height - this.margin.bottom, this.margin.top])])) : new Map(Array.from(this.orderedKeys, key => [key, d3.scaleLinear(d3.extent(this.data, d => d[key]), [this.margin.top, this.height - this.margin.bottom])]));
+    this.y = this.commonScale ? new Map(Array.from(this.orderedKeys, key => [key, d3.scaleLinear([this.abs ? 0 : -this.max , this.max], [this.height - this.margin.bottom, this.margin.top])])) : new Map(Array.from(this.orderedKeys, key => [key, d3.scaleLinear(d3.extent(this.data, d => d[key]), [this.margin.top, this.height - this.margin.bottom])]));
     this.brush.extent([
       [-(this.brushWidth / 2), this.margin.top],
       [this.brushWidth / 2, Math.max(this.margin.top, this.height - this.margin.bottom)]
     ]);
-    
-    const naxis = this.orderedKeys.length;
-    this.axisg.join("g")
-        .each(function(d, i) { 
-          const axis = d3.axisRight(that.y.get(d));
-          //if (onlyFirstAxis && i > 0) {
-          //  axis.tickFormat(() => "");
-          //};
-          let elem = d3.select(this).call(axis);
-          let opacity = 0;
-          if (naxis < 21) opacity = 1;
-          else if (that.order.indexOf(i) % Math.ceil(naxis / 5) == 0) opacity = 1;
-          elem.attr("opacity", opacity);
-          return elem;
-        })
-        .attr("transform", d => `translate(${this.x(d)}, 0)`)
-        .call(this.brush);
 
-    
-    this.path.data(this.data)
+    this.updateAxis();
+
+    this.path
+      .data(this.data)
       .join("path")
         //.attr("stroke", d => z(d[keyz]))
         .attr("stroke", (d, i) => {

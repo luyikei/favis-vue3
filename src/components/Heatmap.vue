@@ -26,7 +26,7 @@ export default {
   props: ["ds", "heatmapProps", "commonProps"],
   emits: ['clicked', 'selectionChanged'],
   data() {
-    const { selection, clicked, hover, dropIndices, MEvent, varCond, factorCond } = useCommonProps();
+    const { selection, clicked, hover, dropIndices, nLimit, MEvent, varCond, factorCond } = useCommonProps();
     return {
       margin: { top: 150, right: 20, bottom: 40, left: 70 },
       height: 300,
@@ -59,6 +59,7 @@ export default {
       clicked,
       hover,
       dropIndices,
+      nLimit,
       MEvent,
       varCond,
       factorCond,
@@ -109,7 +110,7 @@ export default {
         var: !this.isT ? this.order : this.rorder,
         factor: !this.isT ? this.rorder : this.order
       });
-      this.filterd(this.dropIndices);
+      this.filterd();
       this.updateGraph();
     },
     rorder_i: function (v) {
@@ -119,7 +120,7 @@ export default {
         var: !this.isT ? this.order : this.rorder,
         factor: !this.isT ? this.rorder : this.order
       });
-      this.filterd(this.dropIndices);
+      this.filterd();
       this.updateGraph();
     },
     clicked: {
@@ -148,12 +149,13 @@ export default {
       },
       deep: true
     },
-    dropIndices: {
-      handler(dropIndices) {
-        this.filterd(this.dropIndices);
-        this.updateGraph();
-      },
-      deep: true
+    dropIndices() {
+      this.filterd();
+      this.updateGraph();
+    },
+    nLimit() {
+      this.filterd();
+      this.updateGraph();
     },
     heatmapProps: {
       handler(heatmapProps) {
@@ -201,6 +203,7 @@ export default {
       this.matrix = this.cds.matrix;
       this.order_i = 0;
       this.rorder_i = 0;
+      this.filterd();
       this.updateGraph();
     },
 
@@ -209,16 +212,25 @@ export default {
       this.rorder_i = 0;
     },
 
-    filterd(val) {
-      if (val.var.length || val.factor.length) {
-        this.order = this.cds.orders[this.order_i].filter(d => val.var.indexOf(d) == -1);
-        this.rorder = this.cds.rorders[this.rorder_i].filter(d => val.factor.indexOf(d) == -1);
-        this.matrix = this.cds.matrix.filter(d => val.factor.indexOf(d.y) == -1).map(row => (row.filter(d => val.var.indexOf(d.x) == -1)));
-      } else {
-        this.order = this.cds.orders[this.order_i];
-        this.rorder = this.cds.rorders[this.rorder_i];
-        this.matrix = this.cds.matrix;
+    filterd() {
+      const col = !this.isT ? "var" : "factor";
+      const row = !this.isT ? "factor" : "var";
+      this.order = this.cds.orders[this.order_i];
+      this.rorder = this.cds.rorders[this.rorder_i];
+      this.matrix = this.cds.matrix;
+      if (this.dropIndices.var.length || this.dropIndices.factor.length) {
+        this.order = this.order.filter(d => this.dropIndices[col].indexOf(d) == -1);
+        this.rorder = this.rorder.filter(d => this.dropIndices[row].indexOf(d) == -1);
+        this.matrix = this.matrix.filter(d => this.dropIndices[row].indexOf(d.y) == -1).map(row => (row.filter(d => this.dropIndices[col].indexOf(d.x) == -1)));
+      }  
+      if (this.nLimit[row]) {
+        this.matrix = this.matrix.filter((d, i) => this.rorder.indexOf(i) < this.nLimit[row]);
+        this.rorder = this.rorder.filter((d, i) => i < this.nLimit[row]);
       }
+      if (this.nLimit[col]) {
+        this.matrix = this.matrix.map(row => (row.filter((d, i) => this.order.indexOf(i) < this.nLimit[col])));
+        this.order = this.order.filter((d, i) => i < this.nLimit[col]);
+      } 
     },
 
     updateGraph() {
@@ -261,7 +273,7 @@ export default {
                 });
               } else {
                 if (this.sortOnClick)
-                  this.order_i = parseInt(d + 1);
+                  this.rorder_i = parseInt(d + 1);
                 this.$store.commit("updateClicked", {
                   var: null,
                   factor: d,
@@ -283,14 +295,17 @@ export default {
           exit => exit.remove()
         );
       
+      const colSelSet = !this.isT ? this.selection.var : this.selection.factor;
       svg.selectAll(".matcolumn").selectAll("rect").style("stroke", d => this.colCond(d) == this.MEvent.Clicked? "red" : "transparent" );
       svg.selectAll(".matcolumn").selectAll("text")
               .style('fill', (d, i) =>
-                (this.colCond(d) == this.MEvent.Selected || this.colCond(d) == this.MEvent.Hovered ) ? 'red' : (this.isT && this.tocolorfactor ? this.factorcolor(d + 1) : 'black')
+                (this.colCond(d) == this.MEvent.Hovered ) ? 'red' : (this.isT && this.tocolorfactor ? this.factorcolor(d + 1) : 'black')
+              )
+              .style('fill-opacity', (d, i) => colSelSet.size > 0 && this.colCond(d) != this.MEvent.Selected ? 0.1 : 1
               );
 
-      let createCells = (row, i, nodes) => {
-        let rowElem = d3.select(nodes[i]);
+      const createCells = (row, i, nodes) => {
+        const rowElem = d3.select(nodes[i]);
         rowElem.selectAll(".cell")
           .data(row)
           .join("rect")
@@ -301,12 +316,18 @@ export default {
           .attr("width", this.size - 2)
           .attr("height", this.size - 2)
           .style("fill", d => this.thres <= Math.abs(d.z) || !this.isThresholded ? this.cScale(d.z) : this.cScale(0))
+          .style('fill-opacity', (d, i) => {
+            const cond = this.colCond(d.x);
+            if (cond == this.MEvent.Clicked) return 1;
+            if (colSelSet.size > 0 && cond != this.MEvent.Selected) return 0.1;
+            return 1;
+          })
           .on("mouseover", (event) => this.tooltip.mouseover(event))
           .on("mousemove", (event, d) => {
             this.tooltip.mousemove(event, {
               var: !this.isT ? this.cds.names[d.x] : this.cds.row_names[d.y],
               factor: !this.isT ? this.cds.row_names[d.y] : this.cds.names[d.x],
-              codebook: this.cds.codebook ? (!this.isT ? this.cds.codebook[this.cds.names[d.x]] : this.cds.codebook[this.cds.row_names[d.y]]) : null
+              codebook: this.cds.codebook ? (!this.isT ? {...{"Loading": Math.round(d.z * 100)/100}, ...this.cds.codebook[this.cds.names[d.x]]} :{...{"Loading": Math.round(d.z * 100)/100}, ...this.cds.codebook[this.cds.row_names[d.y]],}) : {"Loading": Math.round(d.z * 100)/100}
             });
           })
           .on("mouseleave", (event) => this.tooltip.mouseleave(event));
@@ -331,7 +352,7 @@ export default {
             } else {
               this.$store.commit("updateClicked", {
                 var: d[0].y,
-                factor: Math.floor(x / this.size),
+                factor: this.order[Math.floor(x / this.size)],
               });
             }
             e.stopPropagation();
@@ -364,7 +385,7 @@ export default {
                 });
               } else {
                 if (this.sortOnClick)
-                  this.rorder_i = parseInt(d[0].y + 1);
+                  this.order_i = parseInt(d[0].y + 1);
                 this.$store.commit("updateClicked", {
                   var: d[0].y,
                   factor: null,
@@ -382,11 +403,15 @@ export default {
             .each(createCells),
           exit => exit.remove());
         
+      const rowSelSet = this.isT ? this.selection.var : this.selection.factor;
       svg.selectAll(".matrow").style('fill', (d, i) =>
-              (this.rowCond(i) == this.MEvent.Selected || this.rowCond(i) == this.MEvent.Hovered) ? 'red' : (!this.isT && this.tocolorfactor ? this.factorcolor(i + 1) : 'black')
-            );
+              (this.rowCond(i) == this.MEvent.Hovered) ? 'red' : (!this.isT && this.tocolorfactor ? this.factorcolor(i + 1) : 'black')
+            )
+            .style('opacity', (d, i) => rowSelSet.size > 0 && this.rowCond(i) != this.MEvent.Selected ? 0.1 : 1);
+            
       svg.selectAll(".matrow").selectAll(".highlight")
-              .style("stroke", (d, i) => d.length && (this.rowCond(d[0].y) == this.MEvent.Clicked) ? "red" : "transparent");
+              .style("stroke", (d, i) => d.length && (this.rowCond(d[0].y) == this.MEvent.Clicked) ? "red" : "transparent")
+              .attr("width", this.size * this.order.length);
       
       svg.selectAll(".cell").style("fill", d => this.thres <= Math.abs(d.z) || !this.isThresholded ? this.cScale(d.z) : this.cScale(0));
     }

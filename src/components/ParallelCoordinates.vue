@@ -22,8 +22,6 @@ import * as d3 from "d3";
 import { faviscolorscheme, faviscolorscale, Legend } from "@/objs/d3colorlegend.js"
 import { Tooltip } from '@/objs/d3tooltip.js';
 import { ParallelCoordinatesD3 } from '@/objs/d3ParallelCoordinates.js'
-import { classicalElectronRadiusDependencies } from "mathjs";
-
 import { useCommonProps } from '@/objs/commonProps.js'
 
 export default {
@@ -88,6 +86,7 @@ export default {
       this.ds.row_names, {
       width: 200,
       height: 100,
+      max: Math.round(Math.max(Math.abs(this.ds.max), Math.abs(this.ds.min)) * 10) / 10,
       label: this.factorAxis ? d => d.Factor : d => d.Variable,
       isFactor: this.isFactor,
       selectionChangedCb: (selection) => {

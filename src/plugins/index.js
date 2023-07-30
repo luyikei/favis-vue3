@@ -36,9 +36,13 @@ const store = createStore({
         sort: null
       },
       dropIndices: {
-        var: [],
-        factor: []
-      }
+        var: new Set(),
+        factor: new Set()
+      },
+      nLimit: {
+        var: undefined,
+        factor: undefined
+      },
     }
   },
   getters: {
@@ -56,6 +60,9 @@ const store = createStore({
     },
     getDropIndices(state) {
       return state.dropIndices;
+    },
+    getNLimit(state) {
+      return state.nLimit;
     }
   },
   mutations: {
@@ -76,6 +83,9 @@ const store = createStore({
     },
     updateDropIndices (state, dropIndices) {
       state.dropIndices = dropIndices;
+    },
+    updateNLimit (state, nLimit) {
+      state.nLimit = nLimit;
     }
   }
 })

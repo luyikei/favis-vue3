@@ -35,6 +35,8 @@ export class Data {
     let rsimorders = [];
     let orders = [];
     let simorders = [];
+    this.max = -Infinity
+    this.min = Infinity;
     rorders.push(range(n));
     rsimorders.push(range(n));
     orders.push(range(m));
@@ -42,7 +44,10 @@ export class Data {
     // Compute index per node.
     rawmat.forEach((row, i) => {
       matrix[i] = range(m).map((j) => {
-        return {x: j, y: i, z:  parseFloat(row[j])}; 
+        const z = parseFloat(row[j]);
+        this.max = Math.max(this.max, z);
+        this.min = Math.min(this.min, z);
+        return {x: j, y: i, z}; 
       });
       orders.push(range(m).sort((a, b) => matrix[i][b].z - matrix[i][a].z));
       const svalues = range(n).map(x => math.norm(math.subtract(math.abs(rawmat[x]), math.abs(rawmat[i]))));
