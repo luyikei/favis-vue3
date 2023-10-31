@@ -46,7 +46,7 @@ import { useCommonProps } from '@/objs/commonProps.js'
 export default {
   props: ["ds", "networkProps", "commonProps"],
   data() {
-    const { selection, clicked, hover, dropIndices, varCond, factorCond, MEvent } = useCommonProps();
+    const { selection, clicked, hover, dropIndices, varCond, factorCond, MEvent, MEventSource } = useCommonProps();
     return {
       width: 0,
       height: 0,
@@ -67,6 +67,7 @@ export default {
       varCond,
       factorCond,
       MEvent,
+      MEventSource,
       attractiveForce: 10,
       repulsiveForce: 30,
       color: d3.scaleOrdinal(faviscolorscheme),
@@ -280,9 +281,14 @@ export default {
 
       svg
         .on("click", () => {
-          const clicked = {};
+          const clicked = {
+            source: this.MEventSource.Network,
+            var: undefined,
+            factor: undefined
+          };
           this.$store.commit("updateClicked", clicked);
           this.$store.commit("updateHover", {
+            source: this.MEventSource.Network,
             var: undefined,
             factor: undefined
           });
@@ -340,6 +346,7 @@ export default {
         .call(nodestyle)
         .on("click", (e, d) => {
           const clicked = {
+            source: this.MEventSource.Network,
             var: d.i,
             factor: null,
             sort: null
@@ -349,6 +356,7 @@ export default {
         })
         .on("mouseover", (event, d) => {
           this.$store.commit("updateHover", {
+            source: this.MEventSource.Network,
             var: d.i,
             factor: undefined
           });
@@ -356,6 +364,7 @@ export default {
         })
         .on("mousemove", (event, d) => {
           this.tooltip.mousemove(event, {
+            source: this.MEventSource.Network,
             var: d.id,
             factor: Array.from(d.groups).map(x => this.ds.row_names[x - 1]).join(', '),
             codebook: this.ds.codebook ? this.ds.codebook[d.id] : null
@@ -363,6 +372,7 @@ export default {
         })
         .on("mouseleave", (event, d) => {
           this.$store.commit("updateHover", {
+            source: this.MEventSource.Network,
             var: undefined,
             factor: undefined
           });
@@ -398,6 +408,7 @@ export default {
         .call(linkstyle)
         .on("click", (e, d) => {
           const clicked = {
+            source: this.MEventSource.Network,
             var: null,
             factor: d.group - 1,
             sort: null
@@ -407,17 +418,20 @@ export default {
         })
         .on("mouseover", (event, d) => {
           this.$store.commit("updateHover", {
+            source: this.MEventSource.Network,
             var: undefined,
             factor: d.group - 1
           });
           this.tooltip.mouseover(event);
         })
         .on("mousemove", (event, d) => this.tooltip.mousemove(event, {
+          source: this.MEventSource.Network,
           var: `${d.source.id} ${d.target.id}`,
           factor: this.ds.row_names[d.group - 1]
         }))
         .on("mouseleave", (event, d) => {
           this.$store.commit("updateHover", {
+            source: this.MEventSource.Network,
             var: undefined,
             factor: undefined
           });
@@ -532,6 +546,7 @@ export default {
             .attr("opacity", 0.3)
             .on("click", (e, d) => {
               const clicked = {
+                source: this.MEventSource.Network,
                 var: null,
                 factor: d["factor"] - 1,
                 sort: null
@@ -541,6 +556,7 @@ export default {
             })
             .on("mouseover", (event, d) => {
               this.$store.commit("updateHover", {
+                source: this.MEventSource.Network,
                 var: undefined,
                 factor: d["factor"] - 1
               });
@@ -549,12 +565,14 @@ export default {
             })
             .on("mousemove", (event, d) => {
               this.tooltip.mousemove(event, {
+                source: this.MEventSource.Network,
                 var: "",
                 factor: d["name"]
               })
             })
             .on("mouseleave", (event, d) => {
               this.$store.commit("updateHover", {
+                source: this.MEventSource.Network,
                 var: undefined,
                 factor: undefined
               });

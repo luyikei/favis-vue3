@@ -6,13 +6,12 @@
   </v-app>
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>
 
 <script>
 
 import MultipleViewCor4 from '@/views/MultipleViewCor4.vue';
-import {BFIgeomin, APCAT} from '@/objs/Dataset.js';
+import { BFIgeomin, APCAT } from '@/objs/Dataset.js';
 
 export default {
   name: 'Home',
@@ -22,7 +21,7 @@ export default {
   },
 
   data: () => ({
-    ds: BFIgeomin  
+    ds: APCAT
   }),
 
   methods: {

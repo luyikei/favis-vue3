@@ -6,16 +6,23 @@ export function useCommonProps() {
     Clicked: 0,
     Selected: 1,
     Hovered: 2,
-    None:3,
-  }
+    None: 3,
+  };
+
+  const MEventSource = {
+    Heatmap: 0,
+    Network: 1,
+    ParallelCoordinates: 2,
+    Other: 3,
+  };
 
   const store = useStore()
   // order[i] : the element id at position i
-  const order  = computed(() => store.getters.getOrder);
-  const hover  = computed(() => store.getters.getHover);
-  const selection  = computed(() => store.getters.getSelection);
-  const clicked  = computed(() => store.getters.getClicked);
-  const dropIndices  = computed(() => store.getters.getDropIndices);
+  const order = computed(() => store.getters.getOrder);
+  const hover = computed(() => store.getters.getHover);
+  const selection = computed(() => store.getters.getSelection);
+  const clicked = computed(() => store.getters.getClicked);
+  const dropIndices = computed(() => store.getters.getDropIndices);
   const nLimit = computed(() => store.getters.getNLimit);
   //const filteredOrder  = computed(() => {
   //  return {
@@ -41,5 +48,5 @@ export function useCommonProps() {
   const filterOrder = (ord, dind) => ord.filter(x => dind.indexOf(x) == -1);
 
 
-  return { MEvent, order, hover, selection, clicked, dropIndices, nLimit, filterOrder, varCond, factorCond }
+  return { MEvent, MEventSource, order, hover, selection, clicked, dropIndices, nLimit, filterOrder, varCond, factorCond }
 }

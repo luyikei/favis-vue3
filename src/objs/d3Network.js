@@ -1,7 +1,7 @@
 
 import * as d3 from "d3";
 
-import {faviscolorscheme} from "@/objs/d3colorlegend";
+import { faviscolorscheme } from "@/objs/d3colorlegend";
 
 // Copyright 2021 Observable, Inc.
 // Released under the ISC license.
@@ -21,10 +21,10 @@ export class NetworkD3 {
     nodeStrokeOpacity = 1, // node stroke opacity
     nodeRadius = 5, // node radius, in pixels
     nodeStrength,
-    nodeClickedCb = () => {},
+    nodeClickedCb = () => { },
     nodeIsRect = false,
-    linkSource = ({source}) => source, // given d in links, returns a node identifier string
-    linkTarget = ({target}) => target, // given d in links, returns a node identifier string
+    linkSource = ({ source }) => source, // given d in links, returns a node identifier string
+    linkTarget = ({ target }) => target, // given d in links, returns a node identifier string
     linkStroke = "#999", // link stroke color
     linkStrokeOpacity = 0.6, // link stroke opacity
     linkStrokeWidth = 1.5, // given d in links, returns a stroke width in pixels
@@ -34,7 +34,7 @@ export class NetworkD3 {
     invalidation // when this promise resolves, stop the simulation
   } = {}) {
     this.nodeRadius = nodeRadius;
-    const intern = (value) => value !== null && typeof value === "object" ? value.valueOf() : value; 
+    const intern = (value) => value !== null && typeof value === "object" ? value.valueOf() : value;
 
     // Compute values.
     const N = d3.map(nodes, nodeId).map(intern);
@@ -47,8 +47,8 @@ export class NetworkD3 {
     const L = typeof linkStroke !== "function" ? null : d3.map(links, linkStroke);
 
     // Replace the input nodes and links with mutable objects for the simulation.
-    nodes = d3.map(nodes, (_, i) => ({id: N[i]}));
-    links = d3.map(links, (_, i) => ({source: LS[i], target: LT[i]}));
+    nodes = d3.map(nodes, (_, i) => ({ id: N[i] }));
+    links = d3.map(links, (_, i) => ({ source: LS[i], target: LT[i] }));
 
     // Compute default domains.
     if (G && nodeGroups === undefined) nodeGroups = d3.sort(G);
@@ -58,54 +58,54 @@ export class NetworkD3 {
 
     // Construct the forces.
     const forceNode = d3.forceManyBody();
-    const forceLink = d3.forceLink(links).id(({index: i}) => N[i]);
+    const forceLink = d3.forceLink(links).id(({ index: i }) => N[i]);
     if (nodeStrength !== undefined) forceNode.strength(nodeStrength);
     if (linkStrength !== undefined) forceLink.strength(linkStrength);
 
     const simulation = d3.forceSimulation(nodes)
-        .force("link", forceLink)
-        .force("charge", forceNode)
-        .force("center",  d3.forceCenter())
-        .on("tick", ticked);
+      .force("link", forceLink)
+      .force("charge", forceNode)
+      .force("center", d3.forceCenter())
+      .on("tick", ticked);
 
     const link = svg.append("g")
-        .attr("stroke", typeof linkStroke !== "function" ? linkStroke : null)
-        .attr("stroke-opacity", linkStrokeOpacity)
-        .attr("stroke-width", typeof linkStrokeWidth !== "function" ? linkStrokeWidth : null)
-        .attr("stroke-linecap", linkStrokeLinecap)
+      .attr("stroke", typeof linkStroke !== "function" ? linkStroke : null)
+      .attr("stroke-opacity", linkStrokeOpacity)
+      .attr("stroke-width", typeof linkStrokeWidth !== "function" ? linkStrokeWidth : null)
+      .attr("stroke-linecap", linkStrokeLinecap)
       .selectAll("line")
       .data(links)
       .join("line");
     this.link = link;
 
     let node = svg.append("g")
-        .attr("fill", nodeFill)
-        .attr("stroke", nodeStroke)
-        .attr("stroke-opacity", nodeStrokeOpacity)
-        .attr("stroke-width", nodeStrokeWidth);
+      .attr("fill", nodeFill)
+      .attr("stroke", nodeStroke)
+      .attr("stroke-opacity", nodeStrokeOpacity)
+      .attr("stroke-width", nodeStrokeWidth);
     if (!nodeIsRect) {
       node = node
         .selectAll("circle")
         .data(nodes)
         .join("circle")
-          .attr('stroke-width', 1)
-          .attr("r", nodeRadius)
-          .on('click', nodeClickedCb)
-          .call(drag(simulation));
+        .attr('stroke-width', 1)
+        .attr("r", nodeRadius)
+        .on('click', nodeClickedCb)
+        .call(drag(simulation));
     } else {
       node = node.selectAll("rect")
-      .data(nodes)
-      .join("rect")
+        .data(nodes)
+        .join("rect")
         .attr("height", nodeRadius)
         .attr("width", nodeRadius)
         .call(drag(simulation));
     }
     this.node = node;
 
-    if (W) link.attr("stroke-width", ({index: i}) => W[i]);
-    if (L) link.attr("stroke", ({index: i}) => L[i]);
-    if (G) node.attr("fill", ({index: i}) => color(G[i]));
-    if (T) node.append("title").text(({index: i}) => T[i]);
+    if (W) link.attr("stroke-width", ({ index: i }) => W[i]);
+    if (L) link.attr("stroke", ({ index: i }) => L[i]);
+    if (G) node.attr("fill", ({ index: i }) => color(G[i]));
+    if (T) node.append("title").text(({ index: i }) => T[i]);
     if (invalidation != null) invalidation.then(() => simulation.stop());
 
     function ticked() {
@@ -115,35 +115,35 @@ export class NetworkD3 {
         .attr("x2", d => d.target.x)
         .attr("y2", d => d.target.y);
 
-        if (!nodeIsRect) {
-          node
-            .attr("cx", d => d.x)
-            .attr("cy", d => d.y);
-        } else {
-          node
-            .attr("x", d => d.x - nodeRadius/2)
-            .attr("y", d => d.y - nodeRadius/2);
-        }
+      if (!nodeIsRect) {
+        node
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+      } else {
+        node
+          .attr("x", d => d.x - nodeRadius / 2)
+          .attr("y", d => d.y - nodeRadius / 2);
+      }
     }
 
-    function drag(simulation) {    
+    function drag(simulation) {
       function dragstarted(event) {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
       }
-      
+
       function dragged(event) {
         event.subject.fx = event.x;
         event.subject.fy = event.y;
       }
-      
+
       function dragended(event) {
         if (!event.active) simulation.alphaTarget(0);
         event.subject.fx = null;
         event.subject.fy = null;
       }
-      
+
       return d3.drag()
         .on("start", dragstarted)
         .on("drag", dragged)
@@ -154,12 +154,12 @@ export class NetworkD3 {
   onClicked(clicked) {
     if (typeof clicked.factor == 'number') {
       this.node
-        .attr("r", d =>  clicked.factor == d.id ? this.nodeRadius + 3 : this.nodeRadius )
-        .attr('stroke', d =>  clicked.factor == d.id ? 'black' : 'transparent' );
+        .attr("r", d => clicked.factor == d.id ? this.nodeRadius + 3 : this.nodeRadius)
+        .attr('stroke', d => clicked.factor == d.id ? 'black' : 'transparent');
     } else {
       this.node
-        .attr("r", d =>  clicked.factor == d.id ? this.nodeRadius + 3 : this.nodeRadius )
-        .attr('stroke', 'transparent' );
+        .attr("r", d => clicked.factor == d.id ? this.nodeRadius + 3 : this.nodeRadius)
+        .attr('stroke', 'transparent');
     }
   }
 }

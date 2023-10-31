@@ -1,28 +1,27 @@
 <template>
   <v-app>
     <v-main>
-      <MultipleViewCor5 :ds="ds"></MultipleViewCor5>
+      <MultipleViewCor6 :ds="ds"></MultipleViewCor6>
     </v-main>
   </v-app>
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>
 
 <script>
 
-import MultipleViewCor5 from '@/views/MultipleViewCor5.vue';
-import {BFIgeomin, APCAT} from '@/objs/Dataset.js';
+import MultipleViewCor6 from '@/views/MultipleViewCor6.vue';
+import { BFIgeomin, APCAT } from '@/objs/Dataset.js';
 
 export default {
   name: 'Home',
 
   components: {
-    MultipleViewCor5
+    MultipleViewCor6
   },
 
   data: () => ({
-    ds: BFIgeomin  
+    ds: BFIgeomin
   }),
 
   methods: {
